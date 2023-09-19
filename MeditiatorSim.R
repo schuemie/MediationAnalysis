@@ -2,12 +2,14 @@
 
 library(dplyr)
 library(survival)
+library(Cyclops)
+library(splines)
 
 # x: covariates, a: treatment, m: mediator, y: outcome
 # n: count, p: probability, h: hazard, t: time
 
 # Simulation parameters ----------------------------------------------
-n <- 1000 # Number of subjects
+n <- 10000 # Number of subjects
 nCovariates <- 10 # Number of covariates
 
 # Censor model parameters
@@ -25,8 +27,8 @@ mA <- log(2)
 # Outcome hazard model parameters
 yIntercept <- log(0.05)
 yX <- c(0.5, 0, 0.5, 0, -1, 0, 0, 0, 0, 0)
-yA <- log(1.1)
-yM <- log(2.0)
+yA <- log(2)
+yM <- log(1.5)
 
 # Simulation ----------------------------------------------------------
 logistic <- function(x) {
@@ -75,5 +77,18 @@ data3 <- data %>%
   mutate(tStart = tM)
 data <- bind_rows(data1, data2, data3)
 
-fit <- coxph(Surv(tStart, tEnd, y) ~ a + m + ps + mrs, data)
-summary(fit)
+# Adjusted:
+cyclopsData <- createCyclopsData(Surv(tStart, tEnd, y) ~ a + m + ps + mrs, 
+                                 data = data,
+                                 modelType = "cox")
+fit <- fitCyclopsModel(cyclopsData)
+exp(confint(fit, parm = "aTRUE"))
+exp(confint(fit, parm = "mTRUE"))
+
+# Unadjusted:
+cyclopsData <- createCyclopsData(Surv(tStart, tEnd, y) ~ a + m, 
+                                 data = data,
+                                 modelType = "cox")
+fit <- fitCyclopsModel(cyclopsData)
+exp(confint(fit, parm = "aTRUE"))
+exp(confint(fit, parm = "mTRUE"))
