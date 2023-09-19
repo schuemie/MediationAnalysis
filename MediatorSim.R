@@ -81,7 +81,7 @@ runOneSimulation <- function(seed, settings, psAdjustment = "matching", mAdjustm
   f <- formula(Surv(tStart, tEnd, y) ~ a)
   
   if (mAdjustment == "mrs") {
-    f <- update(f, ~ . + ns(mrs, 3)) 
+    f <- update(f, ~ . + ns(mrs, 5)) 
   } else if (mAdjustment == "covariates") {
     colnames(x) <- paste0("x", seq_len(settings$nX))
     data <- bind_cols(data, x)
@@ -100,7 +100,7 @@ runOneSimulation <- function(seed, settings, psAdjustment = "matching", mAdjustm
       matchOnPs(maxRatio = 1) %>%
       select(-"propensityScore", -"treatment", -"rowId", -"stratumId")
   } else if (psAdjustment == "model") {
-    f <- update(f, ~ . + ns(ps, 3))
+    f <- update(f, ~ . + ns(ps, 5))
   } else if (psAdjustment == "none") {
     # Do nothing
   } else {
