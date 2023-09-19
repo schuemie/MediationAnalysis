@@ -1,15 +1,15 @@
 # A simulation of a time-to-event mediator for a time-to-event outcome
+# Not using Cyclops because of https://github.com/OHDSI/Cyclops/issues/69
 
 library(dplyr)
 library(survival)
-library(Cyclops)
 library(splines)
 
 # x: covariates, a: treatment, m: mediator, y: outcome
 # n: count, p: probability, h: hazard, t: time
 
 # Simulation parameters ----------------------------------------------
-n <- 10000 # Number of subjects
+n <- 1000 # Number of subjects
 nX <- 10 # Number of covariates
 
 # Censor model parameters
@@ -77,18 +77,10 @@ data3 <- data %>%
   mutate(tStart = tM)
 data <- bind_rows(data1, data2, data3)
 
-# Adjusted:
-cyclopsData <- createCyclopsData(Surv(tStart, tEnd, y) ~ a + m + ps + mrs, 
-                                 data = data,
-                                 modelType = "cox")
-fit <- fitCyclopsModel(cyclopsData)
-exp(confint(fit, parm = "aTRUE"))
-exp(confint(fit, parm = "mTRUE"))
+# Adjusted, with mediator:
+fit <- coxph(Surv(tStart, tEnd, y) ~ a + m + ns(ps, 3) + ns(mrs, 3), data = data)
+exp(confint(fit)[1:2, ])
 
-# Unadjusted:
-cyclopsData <- createCyclopsData(Surv(tStart, tEnd, y) ~ a + m, 
-                                 data = data,
-                                 modelType = "cox")
-fit <- fitCyclopsModel(cyclopsData)
-exp(confint(fit, parm = "aTRUE"))
-exp(confint(fit, parm = "mTRUE"))
+# Adjusted, with mediator:
+fit <- coxph(Surv(tStart, tEnd, y) ~ a + ns(ps, 3) + ns(mrs, 3), data = data)
+exp(confint(fit)[1, ])
