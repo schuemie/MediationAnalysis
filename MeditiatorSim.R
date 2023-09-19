@@ -10,7 +10,7 @@ library(splines)
 
 # Simulation parameters ----------------------------------------------
 n <- 10000 # Number of subjects
-nCovariates <- 10 # Number of covariates
+nX <- 10 # Number of covariates
 
 # Censor model parameters
 hCensor <- 0.1 # Hazard of censoring
@@ -35,12 +35,12 @@ logistic <- function(x) {
   return(1/(1+exp(-x)))
 }
 
-x <- matrix(runif(n * nCovariates) < 0.5, ncol = nCovariates)
+x <- matrix(runif(n * nX) < 0.5, ncol = nX)
 pA <- logistic(aIntercept + x %*% aX)[, 1]
 a <- runif(n) < pA
-hM <- logistic(mIntercept + x %*% mX + a * mA)[, 1]
-hY_M <- logistic(yIntercept + x %*% yX + a * yA)[, 1]
-hYM <- logistic(yIntercept + x %*% yX + a * yA + 1 * yM)[, 1]
+hM <- exp(mIntercept + x %*% mX + a * mA)[, 1]
+hY_M <- exp(yIntercept + x %*% yX + a * yA)[, 1]
+hYM <- exp(yIntercept + x %*% yX + a * yA + 1 * yM)[, 1]
 tCensor <- rexp(n, hCensor)
 tM <- rexp(n, hM)
 tY <- rexp(n, hY_M)
