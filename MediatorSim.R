@@ -6,6 +6,7 @@ library(survival)
 library(splines)
 library(ParallelLogger)
 library(CohortMethod)
+library(MatchIt)
 
 # x: covariates, a: treatment, m: mediator, y: outcome
 # n: count, p: probability, h: hazard, t: time
@@ -36,7 +37,7 @@ settings = list(
 
 # Simulation ----------------------------------------------------------
 # seed = 0
-runOneSimulation <- function(seed, settings, psAdjustment = "matching", mAdjustment = "mrs") {
+runOneSimulation <- function(seed, settings, psAdjustment = "matching", mAdjustment = "mrs", mType = "time-to-event") {
   set.seed(seed)
   logistic <- function(x) {
     return(1/(1+exp(-x)))
@@ -87,7 +88,11 @@ runOneSimulation <- function(seed, settings, psAdjustment = "matching", mAdjustm
     data <- bind_cols(data, x)
     newF <- as.formula(paste("~ . + ", paste(colnames(x), collapse = " + ")))
     f <- update(f, newF) 
-  } else if (mAdjustment == "none") {
+  } else if (mAdjustment == "2D matching") {
+    if (psAdjustment != "2D matching") {
+      stop("If  mAdjustment = '2D matching' then psAdjustment should also be '2D matching'")
+    }
+  }  else if (mAdjustment == "none") {
     # Do nothing
   } else {
     stop("Unknown mAdjustment: ", mAdjustment) 
@@ -101,24 +106,33 @@ runOneSimulation <- function(seed, settings, psAdjustment = "matching", mAdjustm
       select(-"propensityScore", -"treatment", -"rowId", -"stratumId")
   } else if (psAdjustment == "model") {
     f <- update(f, ~ . + ns(ps, 5))
+  } else if (psAdjustment == "2D matching") {
+    matchit <- matchit(a ~ ps + mrs, method = "cardinality", tols = 0.01, data = data)
+    data <- match.data(matchit, data = data)
   } else if (psAdjustment == "none") {
     # Do nothing
   } else {
     stop("Unknown psAdjustment: ", psAdjustment) 
   }
   
-  # Split time before / after mediator
-  data1 <- data %>%
-    filter(!m)
-  data2 <- data %>%
-    filter(m) %>%
-    mutate(tEnd = tM,
-           m = FALSE,
-           y = FALSE)
-  data3 <- data %>%
-    filter(m) %>%
-    mutate(tStart = tM)
-  data <- bind_rows(data1, data2, data3)
+  if (mType == "time-to-event") {
+    # Split time before / after mediator
+    data1 <- data %>%
+      filter(!m)
+    data2 <- data %>%
+      filter(m) %>%
+      mutate(tEnd = tM,
+             m = FALSE,
+             y = FALSE)
+    data3 <- data %>%
+      filter(m) %>%
+      mutate(tStart = tM)
+    data <- bind_rows(data1, data2, data3)
+  } else if (mType == "binary") {
+    # Do nothing 
+  } else {
+    stop("Unknown mType: ", mType) 
+  }
   
   # With mediator:
   fit <- coxph(update(f, ~ . + m), data = data)
@@ -150,6 +164,7 @@ clusterRequire(cluster, "survival")
 clusterRequire(cluster, "splines")
 clusterRequire(cluster, "dplyr")
 clusterRequire(cluster, "CohortMethod")
+clusterRequire(cluster, "MatchIt")
 
 # CoverageA1: Coverage of the CI for the main effect when including the mediator in the model
 # CoverageM1: Coverage of the CI for the mediator effect when including the mediator in the model
@@ -203,6 +218,16 @@ clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustmen
   colMeans()
 # coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
 # 0.8300000  0.8000000 -0.5721684  0.2605790  0.7090000 -0.5216629 
+clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustment = "2D matching", mAdjustment = "2D matching") %>%
+  bind_rows() %>%
+  colMeans()
+# coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
+# 0.4840000  0.9120000 -0.3700933  0.3228012  0.4860000 -0.3702400  
+clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustment = "none", mAdjustment = "covariates", mType = "binary") %>%
+  bind_rows() %>%
+  colMeans()
+# coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
+# 0.5560000  0.0000000 -0.4498521 -0.8683096  0.9070000 -0.6307743 
 
 # Without confounding:
 settingsNoConfounding <- settings 
