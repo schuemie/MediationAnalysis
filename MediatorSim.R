@@ -59,7 +59,8 @@ runOneSimulation <- function(seed, settings, psAdjustment = "matching", mAdjustm
   # Survival analysis ---------------------------------------------------
   # Perfect oracle: propensity score (PS) and mediator risk score (MRS) known:
   ps <- pA
-  mrs <- hM
+  # mrs <- hM # This won't work. Need counterfactual MRS:
+  mrs <- exp(settings$mIntercept + x %*% settings$mX)[, 1]
   
   # Sanity checks:
   # plot(ps, mrs)
@@ -90,7 +91,7 @@ runOneSimulation <- function(seed, settings, psAdjustment = "matching", mAdjustm
     f <- update(f, newF) 
   } else if (mAdjustment == "2D matching") {
     if (psAdjustment != "2D matching") {
-      stop("If  mAdjustment = '2D matching' then psAdjustment should also be '2D matching'")
+      stop("If mAdjustment = '2D matching' then psAdjustment should also be '2D matching'")
     }
   }  else if (mAdjustment == "none") {
     # Do nothing
@@ -107,6 +108,10 @@ runOneSimulation <- function(seed, settings, psAdjustment = "matching", mAdjustm
     f <- update(f, ~ . + strata(stratumId))
   } else if (psAdjustment == "model") {
     f <- update(f, ~ . + ns(ps, 5))
+  } else if (psAdjustment == "covariates") {
+    if (mAdjustment != "covariates") {
+      stop("If mAdjustment = 'covariates' then psAdjustment should also be 'covariates'")
+    }
   } else if (psAdjustment == "2D matching") {
     matchit <- matchit(a ~ ps + mrs, 
                        method = "nearest", 
@@ -142,6 +147,9 @@ runOneSimulation <- function(seed, settings, psAdjustment = "matching", mAdjustm
   } else {
     stop("Unknown mType: ", mType) 
   }
+  # Cleanup: remove (near) zero-length intervals:
+  data <- data %>%
+    filter(tEnd - tStart > 0.0001)
   
   # With mediator:
   fit <- coxph(update(f, ~ . + m), data = data)
@@ -186,78 +194,71 @@ clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustmen
   bind_rows() %>%
   colMeans()
 # coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
-# 0.7360000  0.9390000 -0.4116789  0.4169917  0.7270000 -0.4097680 
+# 0.9350000  0.9400000 -0.7137519  0.4166025  0.9270000 -0.6449663 
 clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustment = "model", mAdjustment = "mrs") %>%
   bind_rows() %>%
   colMeans()
 # coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
-# 0.4820000  0.9390000 -0.3963065  0.3979469  0.4790000 -0.3940503 
+# 0.9290000  0.9410000 -0.6900137  0.3992755  0.8980000 -0.6220887 
 clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustment = "none", mAdjustment = "mrs") %>%
   bind_rows() %>%
   colMeans()
 # coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
-# 0.4130000  0.9360000 -0.3666600  0.3943466  0.4080000 -0.3645749 
-clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustment = "matching", mAdjustment = "covariates") %>%
+# 0.8240000  0.9340000 -0.5693873  0.3949595  0.6590000 -0.5029238 
+clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustment = "covariates", mAdjustment = "covariates") %>%
   bind_rows() %>%
   colMeans()
 # coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
-# 0.9360000  0.9390000 -0.7276328  0.4213565  0.9270000 -0.6582225 
-clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustment = "model", mAdjustment = "covariates") %>%
-  bind_rows() %>%
-  colMeans()
-# coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
-# 0.9260000  0.9350000 -0.7022992  0.4034742  0.9090000 -0.6333219 
-clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustment = "none", mAdjustment = "covariates") %>%
-  bind_rows() %>%
-  colMeans()
-# coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
-# 0.9240000  0.9380000 -0.6996240  0.4026938  0.9070000 -0.6307743 
+# 0.9240000  0.9380000 -0.6996478  0.4026710  0.9070000 -0.6308008 
 clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustment = "matching", mAdjustment = "none") %>%
   bind_rows() %>%
   colMeans()
 # coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
-# 0.9260000  0.8710000 -0.6706044  0.2447908  0.9190000 -0.6291408
+# 0.9260000  0.8710000 -0.6706329  0.2447659  0.9190000 -0.6291749 
 clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustment = "model", mAdjustment = "none") %>%
   bind_rows() %>%
   colMeans()
 # coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
-# 0.9340000  0.7150000 -0.6511412  0.2242072  0.8980000 -0.6137354 
+# 0.9290000  0.7140000 -0.6523017  0.2247884  0.8970000 -0.6147374 
 clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustment = "none", mAdjustment = "none") %>%
   bind_rows() %>%
   colMeans()
 # coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
-# 0.8300000  0.8000000 -0.5721684  0.2605790  0.7090000 -0.5216629 
+# 0.8300000  0.8000000 -0.5721839  0.2605555  0.7090000 -0.5216825 
 clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustment = "2D matching", mAdjustment = "2D matching") %>%
   bind_rows() %>%
   colMeans()
 # coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
-# 0.7290000  0.9420000 -0.4188066  0.3956802  0.7250000 -0.4131823 
-clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustment = "none", mAdjustment = "covariates", mType = "binary") %>%
+# 0.9390000  0.9350000 -0.6928786  0.3937783  0.9220000 -0.6273094 
+clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustment = "covariates", mAdjustment = "covariates", mType = "binary") %>%
   bind_rows() %>%
   colMeans()
 # coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
-# 0.5560000  0.0000000 -0.4498521 -0.8683096  0.9070000 -0.6307743 
+# 0.5560000  0.0000000 -0.4498662 -0.8682919  0.9070000 -0.6307832 
 
 # Without confounding:
 settingsNoConfounding <- settings 
 settingsNoConfounding$aX <- rep(0, settings$nX)
+settingsNoConfounding$aX[1] <- 1
 settingsNoConfounding$mX <- rep(0, settings$nX)
+settingsNoConfounding$mX[2] <- 1
 settingsNoConfounding$yX <- rep(0, settings$nX)
+settingsNoConfounding$yX[3] <- 1
 clusterApply(cluster, 1:1000, runOneSimulation, settings = settingsNoConfounding, psAdjustment = "matching", mAdjustment = "mrs") %>%
   bind_rows() %>%
   colMeans()
 # coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
-# 0.9460000  0.9410000 -0.7063746  0.4205650  0.9230000 -0.6303278 
+# 0.9380000  0.9410000 -0.7067062  0.4068102  0.9090000 -0.6313603 
 clusterApply(cluster, 1:1000, runOneSimulation, settings = settingsNoConfounding, psAdjustment = "none", mAdjustment = "none") %>%
   bind_rows() %>%
   colMeans()
 # coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
-# 0.9380000  0.9490000 -0.7017348  0.4071058  0.9010000 -0.6260749 
+# 0.9420000  0.9360000 -0.6761984  0.3950845  0.8440000 -0.6056510 
 clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustment = "none", mAdjustment = "none", mType = "binary") %>%
   bind_rows() %>%
   colMeans()
 # coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 
-# 0.2040000  0.0000000 -0.3233301 -0.8556729  0.7090000 -0.5216629 
+# 0.2040000  0.0000000 -0.3233349 -0.8556581  0.7090000 -0.5216636 
 
 settings$yA
 settings$yM
