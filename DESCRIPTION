@@ -16,9 +16,11 @@ Imports:
 	ParallelLogger,
 	CohortMethod,
 	MatchIt,
-	digest
+	digest,
+	rlang,
+	Cyclops,
+	readr
 License: Apache License 2.0
-VignetteBuilder: knitr
 RoxygenNote: 7.2.3
 Roxygen: list(markdown = TRUE)
 Encoding: UTF-8

@@ -1,11 +1,16 @@
 library(MediationAnalysis)
 
-folder <- "c:/temp/MediationAnalysis"
-simulationSettingsList <- list(createSimulationSettings())
-modelSettingsList <- list(createModelsettings())
+folder <- "d:/temp/MediationAnalysis"
+ssList <- list()
+msList <- list()
 
-runSetOfSimulations(folder, 
-                    simulationSettingsList, 
-                    modelSettingsList,
-                    nSimulations = 10,
-                    maxCores = 4) 
+ssList[[length(ssList) + 1]] <- createSimulationSettings()
+msList[[length(msList) + 1]] <- createModelsettings() 
+msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
+                                                    mrs = "fit") 
+
+runSetOfSimulations(folder = folder, 
+                    simulationSettingsList = ssList, 
+                    modelSettingsList = msList,
+                    nSimulations = 1000,
+                    maxCores = 20) 

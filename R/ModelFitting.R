@@ -119,8 +119,8 @@ fitModel <- function(data, settings) {
   
   if (settings$psAdjustment == "matching") {
     data <- data %>%
-      mutate(propensityScore = ps,
-             treatment = a,
+      mutate(propensityScore = .data$ps,
+             treatment = .data$a,
              rowId = row_number()) %>%
       CohortMethod::matchOnPs(maxRatio = 100) %>%
       select(-"propensityScore", -"treatment", -"rowId")
@@ -151,15 +151,15 @@ fitModel <- function(data, settings) {
     # Split time before / after mediator
     data <- bind_rows(
       data %>%
-        filter(!m),
+        filter(!.data$m),
       data %>%
-        filter(m) %>%
-        mutate(tEnd = tM,
+        filter(.data$m) %>%
+        mutate(tEnd = .data$tM,
                m = FALSE,
                y = FALSE),
       data %>%
-        filter(m) %>%
-        mutate(tStart = tM)
+        filter(.data$m) %>%
+        mutate(tStart = .data$tM)
     )
   } else if (settings$mediatorType == "binary") {
     # Do nothing 
@@ -168,7 +168,7 @@ fitModel <- function(data, settings) {
   }
   # Cleanup: remove (near) zero-length intervals:
   data <- data %>%
-    filter(tEnd - tStart > 0.0001)
+    filter(.data$tEnd - .data$tStart > 0.0001)
   
   # With mediator:
   fit1 <- coxph(update(f, ~ . + m), data = data)

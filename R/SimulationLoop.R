@@ -39,13 +39,22 @@ runSetOfSimulations <- function(folder,
     dir.create(folder)
   }
   cluster <- ParallelLogger::makeCluster(maxCores)
+  on.exit(ParallelLogger::stopCluster(cluster))
+  allResults <- list()
+  nScenarios <- length(simulationSettingsList) * length(modelSettingsList)
+  i <- 1
   # ParallelLogger::clusterRequire(cluster, "MediationAnalysis")
+  # simulationSettings = simulationSettingsList[[1]]
+  # modelSettings = modelSettingsList[[1]]
   for (simulationSettings in simulationSettingsList) {
     for (modelSettings in modelSettingsList) {
+      message(sprintf("Running scenario %d of %d", i, nScenarios))
       fileName <- file.path(folder, 
                             sprintf("result_%s.rds", 
                                     digest::digest(list(modelSettings, simulationSettings))))
-      if (!file.exists(fileName)) {
+      if (file.exists(fileName)) {
+        summaryResults <- readRDS(fileName)
+      } else {
         results <- ParallelLogger::clusterApply(cluster, 
                                                 seq_len(nSimulations), 
                                                 runOneSimulation, 
@@ -72,9 +81,12 @@ runSetOfSimulations <- function(folder,
           bind_cols(as_tibble(simulationSettings))
         saveRDS(summaryResults, fileName)
       }
+      allResults[[i]] <- summaryResults
+      i <- i + 1
     }
   }
-  ParallelLogger::stopCluster(cluster)
+  allResults <- bind_rows(allResults)
+  readr::write_csv(allResults, file.path(folder, "Results.csv"))
 }
 
 runOneSimulation <- function(seed, simulationSettings, modelSettings) {

@@ -18,5 +18,8 @@
 "_PACKAGE"
 
 #' @import dplyr
+#' @import survival
+#' @import splines
 #' @importFrom rlang .data
+#' @importFrom stats as.formula coef confint formula predict rexp runif update
 NULL
