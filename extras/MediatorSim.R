@@ -176,7 +176,7 @@ runOneSimulation <- function(seed, settings, psAdjustment = "matching", mAdjustm
     return()
 }
 
-cluster <- makeCluster(20)
+cluster <- makeCluster(3)
 clusterRequire(cluster, "survival")
 clusterRequire(cluster, "splines")
 clusterRequire(cluster, "dplyr")
@@ -190,7 +190,7 @@ clusterRequire(cluster, "MatchIt")
 # CoverageA2: Coverage of the CI for the main effect when *not* including the mediator in the model
 # eYa2: Mean estimate of the log main effect when *not* including the mediator in the model
 
-clusterApply(cluster, 1:1000, runOneSimulation, settings = settings, psAdjustment = "matching", mAdjustment = "mrs") %>%
+clusterApply(cluster, 1:100, runOneSimulation, settings = settings, psAdjustment = "matching", mAdjustment = "mrs") %>%
   bind_rows() %>%
   colMeans()
 # coverageA1 coverageM1       eYa1       eYm1 coverageA2       eYa2 

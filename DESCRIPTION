@@ -1,0 +1,25 @@
+Package: MediationAnalysis
+Type: Package
+Title: Performing a Mediation Analysis in Observational Data
+Version: 0.0.1
+Date: 2023-09-24
+Authors@R: c(
+  person("Martijn", "Schuemie", email = "schuemie@ohdsi.org", role = c("aut", "cre"))
+  )
+Maintainer: Martijn Schuemie <schuemie@ohdsi.org>
+Description: Code for evaluating various approaches to mediation analysis in observational data.
+Depends:
+	survival,
+	splines
+Imports:
+	dplyr,
+	ParallelLogger,
+	CohortMethod,
+	MatchIt,
+	digest
+License: Apache License 2.0
+VignetteBuilder: knitr
+RoxygenNote: 7.2.3
+Roxygen: list(markdown = TRUE)
+Encoding: UTF-8
+LazyData: true
