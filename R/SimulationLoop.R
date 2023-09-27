@@ -36,8 +36,13 @@ runSetOfSimulations <- function(folder,
                                 nSimulations = 1000,
                                 maxCores = 4) {
   if (!dir.exists(folder)) {
-    dir.create(folder)
+    dir.create(folder, recursive = TRUE)
   }
+  ParallelLogger::addDefaultFileLogger(file.path(folder, "log.txt"))
+  ParallelLogger::addDefaultErrorReportLogger(file.path(folder, "errorReportR.txt"))
+  on.exit(ParallelLogger::unregisterLogger("DEFAULT_FILE_LOGGER", silent = TRUE))
+  on.exit(ParallelLogger::unregisterLogger("DEFAULT_ERRORREPORT_LOGGER", silent = TRUE), add = TRUE)
+  
   cluster <- ParallelLogger::makeCluster(maxCores)
   on.exit(ParallelLogger::stopCluster(cluster))
   allResults <- list()
@@ -57,11 +62,12 @@ runSetOfSimulations <- function(folder,
       } else {
         results <- ParallelLogger::clusterApply(cluster, 
                                                 seq_len(nSimulations), 
-                                                runOneSimulation, 
+                                                MediationAnalysis:::runOneSimulation, 
                                                 simulationSettings = simulationSettings,
                                                 modelSettings = modelSettings)
         results <- results %>%
           bind_rows()
+        hasIndirectEffect <- simulationSettings$mA != 0 & simulationSettings$yM != 0
         summaryResults <- tibble(
           coverageMainEffect = mean(simulationSettings$yA >= results$mainLogLb & 
                                       simulationSettings$yA <= results$mainLogUb),
@@ -72,13 +78,17 @@ runSetOfSimulations <- function(folder,
           meanMainEffect = mean(results$mainLogHr),
           meanMediatorEffect = mean(results$mediatorLogHr),
           meanMainEffectNoM = mean(results$mainLogHrNoM),
+          meanIndirectEffect = mean(results$mainLogDiff),
+          indirectType1Error = if_else(hasIndirectEffect, NA, mean(results$mainLogLbDiff > 0 | results$mainLogUbDiff < 0)),
+          indirectType2Error = if_else(hasIndirectEffect, mean(results$mainLogLbDiff <= 0 & results$mainLogUbDiff >= 0), NA)
         )
-        simulationSettings$aX <- paste(simulationSettings$aX, collapse = ", ")
-        simulationSettings$mX <- paste(simulationSettings$mX, collapse = ", ")
-        simulationSettings$yX <- paste(simulationSettings$yX, collapse = ", ")
+        simSettingsForOutput <- simulationSettings
+        simSettingsForOutput$aX <- paste(simSettingsForOutput$aX, collapse = ", ")
+        simSettingsForOutput$mX <- paste(simSettingsForOutput$mX, collapse = ", ")
+        simSettingsForOutput$yX <- paste(simSettingsForOutput$yX, collapse = ", ")
         summaryResults <- summaryResults %>% 
           bind_cols(as_tibble(modelSettings)) %>%
-          bind_cols(as_tibble(simulationSettings))
+          bind_cols(as_tibble(simSettingsForOutput))
         saveRDS(summaryResults, fileName)
       }
       allResults[[i]] <- summaryResults

@@ -174,12 +174,18 @@ fitModel <- function(data, settings) {
   fit1 <- coxph(update(f, ~ . + m), data = data)
   ci1 <- confint(fit1)
   e1 <- coef(fit1)
+  se1 <- summary(fit1)$coef["aTRUE", 3]
   
   # Without mediator:
   fit2 <- coxph(f, data = data)
   ci2 <- confint(fit2)
   e2 <- coef(fit2)
+  se2 <- summary(fit2)$coef["aTRUE", 3]
   
+    # log difference with vs without mediator:
+  logDiff <- e1["aTRUE"] - e2["aTRUE"]
+  seLogDiff <- sqrt(se1^2 / e1["aTRUE"]^2 + se2^2 / e2["aTRUE"]^2)
+  logDiffCi <- logDiff + qnorm(c(0.025, 0.975)) * seLogDiff
   result <- tibble(mainLogHr = e1["aTRUE"],
                    mainLogLb = ci1["aTRUE", 1],
                    mainLogUb = ci1["aTRUE", 2],
@@ -188,6 +194,9 @@ fitModel <- function(data, settings) {
                    mediatorLogUb = ci1["mTRUE", 2],
                    mainLogHrNoM = e2["aTRUE"],
                    mainLogLbNoM = ci2["aTRUE", 1],
-                   mainLogUbNoM = ci2["aTRUE", 2])
+                   mainLogUbNoM = ci2["aTRUE", 2],
+                   mainLogDiff = logDiff,
+                   mainLogLbDiff = logDiffCi[1],
+                   mainLogUbDiff = logDiffCi[2])
   return(result)
 }
