@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # library(dplyr)
+# data = simulateData(createSimulationSettings())
+# settings = createModelsettings()
 
 #' Create model fitting settings
 #'
@@ -209,15 +211,34 @@ fitModel <- function(data, settings) {
   return(result)
 }
 
-singleBootstrapSample <- function(dummy, data, f) {
-  data <- data[sample.int(nrow(data), nrow(data), replace = TRUE), ]
-  fit1 <- coxph(update(f, ~ . + m), data = data)
-  fit2 <- coxph(f, data = data)
-  return(coef(fit2)["aTRUE"] - coef(fit1)["aTRUE"])
+singleBootstrapSample <- function(dummy, x, y, stratumId, rowNames) {
+  idx <- sample.int(nrow(x), nrow(x), replace = TRUE)
+  x <- x[idx, ]
+  y <- y[idx, ]
+  if (!is.null(stratumId)) {
+    stratumId <- stratumId[idx]
+  }
+  control <- coxph.control()
+  fit1 <- agreg.fit(x, y, stratumId, control = control, method = "efron", rownames = rowNames,  init = rep(0,ncol(x)))
+  fit2 <- agreg.fit(x[, -ncol(x)], y, stratumId, control = control, method = "efron", rownames = rowNames,  init = rep(0, ncol(x)-1))
+  return(fit2$coefficients[1] - fit1$coefficients[1])
 }
 
 computeIndirectEffectCi <- function(data, f) {
-  bootstrap <- sapply(seq_len(100), singleBootstrapSample, data = data, f = f)  
+  # Optimized for speed: call agreg.fit directly: 
+  terms <- terms(f)
+  if ("stratumId" %in% colnames(data)) {
+    strataIdx <- grep("strata", attr(terms, "term.labels"))
+    x <- cbind(model.matrix(terms[-strataIdx], data = data)[, -1], data$m)
+    stratumId <- data$stratumId
+  } else {
+    x <- cbind(model.matrix(terms, data = data)[, -1], data$m)
+    stratumId <- NULL
+  }
+  y <- Surv(data$tStart, data$tEnd, data$y)
+  # Creating a character vector is slow, so do only once:
+  rowNames <- as.character(seq_len(nrow(x)))
+  bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, stratumId = stratumId, rowNames = rowNames)  
   ci <- quantile(bootstrap, c(0.025, 0.975))
   return(ci)
 }
