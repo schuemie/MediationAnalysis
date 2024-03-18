@@ -74,7 +74,6 @@ createModelsettings <- function(ps = "oracle",
 #'
 #' @export
 fitModel <- function(data, settings) {
-  
   f <- formula(Surv(tStart, tEnd, y) ~ a)
   
   if (settings$ps == "oracle") {
@@ -177,13 +176,14 @@ fitModel <- function(data, settings) {
   se1 <- summary(fit1)$coef["aTRUE", 3]
   
   # Without mediator:
-  fit2 <- coxph(f, data = data)
+  fit2 <- coxph(Surv(tStart, tEnd, y) ~ a, data = data)
+  # fit2 <- coxph(f, data = data)
   ci2 <- confint(fit2)
   e2 <- coef(fit2)
   se2 <- summary(fit2)$coef["aTRUE", 3]
   
     # log difference with vs without mediator:
-  logDiff <- e1["aTRUE"] - e2["aTRUE"]
+  logDiff <- e2["aTRUE"] - e1["aTRUE"]
   seLogDiff <- sqrt(se1^2 / e1["aTRUE"]^2 + se2^2 / e2["aTRUE"]^2)
   logDiffCi <- logDiff + qnorm(c(0.025, 0.975)) * seLogDiff
   result <- tibble(mainLogHr = e1["aTRUE"],
@@ -197,6 +197,7 @@ fitModel <- function(data, settings) {
                    mainLogUbNoM = ci2["aTRUE", 2],
                    mainLogDiff = logDiff,
                    mainLogLbDiff = logDiffCi[1],
-                   mainLogUbDiff = logDiffCi[2])
+                   mainLogUbDiff = logDiffCi[2],
+                   hrIndirect = data$hrIndirect[1])
   return(result)
 }

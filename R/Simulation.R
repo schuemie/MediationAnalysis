@@ -98,6 +98,8 @@ simulateData <- function(settings) {
   tY[idx] <- tM[idx] + rexp(sum(idx), hYM[idx])
   t <- pmin(tCensor, tY)
   hMstar <- exp(settings$mIntercept + x %*% settings$mX)[, 1]
+  # hrIndirect <- computeTrueIndirectEffect(tM, t, hYM, hY_M, n)
+  hrIndirect <- computeTrueIndirectEffect(settings$hCensor, hM, hY_M, hYM, settings$n)
   
   data <- tibble(
     a = a,
@@ -108,8 +110,71 @@ simulateData <- function(settings) {
     tM = pmin(tM, t),
     tY = pmin(tY, t),
     pA = pA,
-    hMstar = hMstar
+    hMstar = hMstar,
+    hrIndirect = hrIndirect
   ) %>%
     bind_cols(x)
   return(data)
 }
+
+# computeTrueIndirectEffect <- function(tM, t, hYM, hY_M, n) {
+#   tM <- pmin(t, tM)
+#   totalH <- sum(tM*hY_M + (t-tM) * hYM)
+#   hrIndirect <- totalH / sum(hY_M*t)
+#   return(hrIndirect)
+# }
+
+computeTrueIndirectEffect <- function(hCensor, hM, hY_M, hYM, n) {
+  sample <- sapply(seq_len(1000),
+                   computeTrueIndirectEffectOnce,
+                   hCensor = hCensor,
+                   hM = hM,
+                   hY_M = hY_M,
+                   hYM = hYM,
+                   n = n)
+  return(median(sample))
+}
+
+computeTrueIndirectEffectOnce <- function(dummy, hCensor, hM, hY_M, hYM, n) {
+  tCensor <- rexp(n, hCensor)
+  tM <- rexp(n, hM)
+  tY <- rexp(n, hY_M)
+  idx <- tM < tY
+  tY[idx] <- tM[idx] + rexp(sum(idx), hYM[idx])
+  t <- pmin(tCensor, tY)
+  tM <- pmin(t, tM)
+  totalH <- sum(tM*hY_M + (t-tM) * hYM)
+  return(totalH / sum(hY_M*t))
+}
+
+
+
+# computeTrueIndirectEffect <- function(hM, hY_M, hYM, hC, n) {
+#   # Well this was stupid: cannot use discrete time for continuous model
+#   # p(M,t) = 1-Prod_i=1^t(1-hM)
+#   # h*Y(t) = p(M,t)*hYm + (1-p(M,t))*hY_m
+#   # p(Y,t) = 1-Prod_i=1^t(1-h*Y(i))
+#   # p(c,t) = 1-Prod_i=1^t(1-hC)
+#   # p(o,t) = 1-((1-p(Y,t)) * (1-p(c,t))
+#   # hr(t) = h*Y(t) / hY_m
+#   # hr = Sum_t=1^inf(hr(t)*p(o,t)) / Sum_t=1^inf(p(o,t)) 
+#   sumHrW <- rep(0, n)
+#   sumW <- rep(0, n)
+#   p_M <- rep(1, n)
+#   p_Y <- rep(1, n)
+#   p_C <- rep(1, n)
+#   for (t in seq_len(100)) {
+#     p_M <- p_M * (1-hM)
+#     pM <- 1-p_M  
+#     hStarY <- pM * hYM + p_M * hY_M
+#     p_Y <- p_Y * (1-hStarY)
+#     p_C <- p_C * (1-hC)
+#     pO <- p_Y * p_C
+#     hr <- hStarY / hY_M
+#     sumHrW <- sumHrW + hr * pO
+#     sumW <- pO
+#   }
+#   hrIndirect <- sumHrW / sumW
+#   
+#   
+# }
