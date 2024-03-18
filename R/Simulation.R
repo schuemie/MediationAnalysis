@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # library(dplyr)
+# settings <- createSimulationSettings()
 
 #' Create simulation settings
 #'
@@ -97,13 +98,25 @@ simulateData <- function(settings) {
   idx <- tM < tY
   tY[idx] <- tM[idx] + rexp(sum(idx), hYM[idx])
   t <- pmin(tCensor, tY)
+  # To compute true counterfactuals:
   hMstar <- exp(settings$mIntercept + x %*% settings$mX)[, 1]
+  hY_Mstar <- exp(settings$yIntercept + x %*% settings$yX)[, 1]
+  hYMstar <- exp(settings$yIntercept + x %*% settings$yX + 1 * settings$yM)[, 1]
+  
   hrIndirect <- computeTrueIndirectEffect(hCensor = settings$hCensor, 
                                           hM = hM, 
                                           hMstar = hMstar, 
                                           hY_M = hY_M, 
                                           hYM = hYM, 
                                           a = a)
+  hrMain <- computeTrueMainEffect(hCensor = settings$hCensor, 
+                                  hM = hM, 
+                                  hMstar = hMstar, 
+                                  hY_M = hY_M, 
+                                  hY_Mstar = hY_Mstar,
+                                  hYM = hYM, 
+                                  hYMstar = hYMstar,
+                                  a = a)
   data <- tibble(
     a = a,
     tStart = 0,
@@ -114,6 +127,7 @@ simulateData <- function(settings) {
     tY = pmin(tY, t),
     pA = pA,
     hMstar = hMstar,
+    hrMain = hrMain,
     hrIndirect = hrIndirect
   ) %>%
     bind_cols(x)
@@ -131,6 +145,21 @@ computeTrueIndirectEffect <- function(hCensor, hM, hMstar, hY_M, hYM, a) {
   hFull <- cumHazard(nearInfinity, hCensor, hM, hY_M, hYM) - cumHazard(0, hCensor, hM, hY_M, hYM)
   hNoMediation <- cumHazard(nearInfinity, hCensor, hMstar, hY_M, hYM) - cumHazard(0, hCensor, hMstar, hY_M, hYM)
   return(mean(hFull / hNoMediation))
+}
+
+computeTrueMainEffect <- function(hCensor, hM, hMstar, hY_M, hY_Mstar, hYM, hYMstar, a) {
+  # Only exposed have effect:
+  idx <- a == 1
+  hM <- hM[idx]
+  hYM <- hYM[idx]
+  hY_M <- hY_M[idx]
+  hMstar <- hMstar[idx]
+  hY_Mstar <- hY_Mstar[idx]
+  hYMstar <- hYMstar[idx]
+  nearInfinity <- 999
+  hFull <- cumHazard(nearInfinity, hCensor, hM, hY_M, hYM) - cumHazard(0, hCensor, hM, hY_M, hYM)
+  hCounterfactual <- cumHazard(nearInfinity, hCensor, hMstar, hY_Mstar, hYMstar) - cumHazard(0, hCensor, hMstar, hY_Mstar, hYMstar)
+  return(mean(hFull / hCounterfactual))
 }
 
 

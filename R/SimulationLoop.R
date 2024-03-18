@@ -69,17 +69,21 @@ runSetOfSimulations <- function(folder,
           bind_rows()
         hasIndirectEffect <- simulationSettings$mA != 0 & simulationSettings$yM != 0
         summaryResults <- tibble(
-          coverageMainEffect = mean(simulationSettings$yA >= results$mainLogLb & 
-                                      simulationSettings$yA <= results$mainLogUb),
+          coverageDirectEffect = mean(simulationSettings$yA >= results$directLogLb & 
+                                      simulationSettings$yA <= results$directLogUb),
           coverageMediatorEffect = mean(simulationSettings$yM >= results$mediatorLogLb & 
                                           simulationSettings$yM <= results$mediatorLogUb),
+          covarageMainEffect = mean(log(results$hrMain) >= results$mainLogLb &
+                                          log(results$hrMain) <= results$mainLogUb),
           covarageIndirectEffect = mean(log(results$hrIndirect) >= results$mainLogLbDiff &
                                           log(results$hrIndirect) <= results$mainLogUbDiff),
-          biasMainEffect = mean(simulationSettings$yA - results$mainLogHr),
+          biasDirectEffect = mean(simulationSettings$yA - results$directLogHr),
           biasMediatorEffect = mean(simulationSettings$yA - results$mainLogHr),
+          biasMainEffect = mean(log(results$hrMain) - results$mainLogHr),
           biasIndirectEffect = mean(log(results$hrIndirect) - results$mainLogDiff),
-          mseMainEffect = mean((simulationSettings$yA - results$mainLogHr)^2),
+          mseDirectEffect = mean((simulationSettings$yA - results$directLogHr)^2),
           msesMediatorEffect = mean((simulationSettings$yA - results$mainLogHr)^2),
+          mseMainEffect = mean((log(results$hrMain) - results$mainLogHr)^2),
           mseIndirectEffect = mean((log(results$hrIndirect) - results$mainLogDiff)^2),
           indirectType1Error = if_else(hasIndirectEffect, NA, mean(results$mainLogLbDiff > 0 | results$mainLogUbDiff < 0)),
           indirectType2Error = if_else(hasIndirectEffect, mean(results$mainLogLbDiff <= 0 & results$mainLogUbDiff >= 0), NA)

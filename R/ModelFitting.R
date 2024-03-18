@@ -195,18 +195,19 @@ fitModel <- function(data, settings) {
   # log difference with vs without mediator:
   logDiff <- e2["aTRUE"] - e1["aTRUE"]
   logDiffCi <- computeIndirectEffectCi(data, f)
-  result <- tibble(mainLogHr = e1["aTRUE"],
-                   mainLogLb = ci1["aTRUE", 1],
-                   mainLogUb = ci1["aTRUE", 2],
+  result <- tibble(directLogHr = e1["aTRUE"],
+                   directLogLb = ci1["aTRUE", 1],
+                   directLogUb = ci1["aTRUE", 2],
                    mediatorLogHr = e1["mTRUE"],
                    mediatorLogLb = ci1["mTRUE", 1],
                    mediatorLogUb = ci1["mTRUE", 2],
-                   mainLogHrNoM = e2["aTRUE"],
-                   mainLogLbNoM = ci2["aTRUE", 1],
-                   mainLogUbNoM = ci2["aTRUE", 2],
+                   mainLogHr = e2["aTRUE"],
+                   mainLogLb = ci2["aTRUE", 1],
+                   mainLogUb = ci2["aTRUE", 2],
                    mainLogDiff = logDiff,
                    mainLogLbDiff = logDiffCi[1],
                    mainLogUbDiff = logDiffCi[2],
+                   hrMain = data$hrMain[1],
                    hrIndirect = data$hrIndirect[1])
   return(result)
 }
@@ -238,7 +239,7 @@ computeIndirectEffectCi <- function(data, f) {
   y <- Surv(data$tStart, data$tEnd, data$y)
   # Creating a character vector is slow, so do only once:
   rowNames <- as.character(seq_len(nrow(x)))
-  bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, stratumId = stratumId, rowNames = rowNames)  
+  bootstrap <- sapply(seq_len(100), singleBootstrapSample, x = x, y = y, stratumId = stratumId, rowNames = rowNames)  
   ci <- quantile(bootstrap, c(0.025, 0.975))
   # Alternative: impose normal distribution for efficiency:
   # ci <- qnorm(c(0.025, 0.975), mean(bootstrap), sd(bootstrap))

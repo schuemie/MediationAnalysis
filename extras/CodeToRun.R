@@ -27,6 +27,6 @@ runSetOfSimulations(folder = folder,
                     simulationSettingsList = ssList, 
                     modelSettingsList = msList,
                     nSimulations = 1000,
-                    maxCores = 1) 
+                    maxCores = 10) 
 
 
