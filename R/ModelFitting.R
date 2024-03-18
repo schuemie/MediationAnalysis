@@ -220,7 +220,7 @@ singleBootstrapSample <- function(dummy, x, y, stratumId, rowNames) {
   }
   control <- coxph.control()
   fit1 <- agreg.fit(x, y, stratumId, control = control, method = "efron", rownames = rowNames,  init = rep(0,ncol(x)))
-  fit2 <- agreg.fit(x[, -ncol(x)], y, stratumId, control = control, method = "efron", rownames = rowNames,  init = rep(0, ncol(x)-1))
+  fit2 <- agreg.fit(x[, -ncol(x), drop = FALSE], y, stratumId, control = control, method = "efron", rownames = rowNames,  init = rep(0, ncol(x)-1))
   return(fit2$coefficients[1] - fit1$coefficients[1])
 }
 
@@ -240,5 +240,7 @@ computeIndirectEffectCi <- function(data, f) {
   rowNames <- as.character(seq_len(nrow(x)))
   bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, stratumId = stratumId, rowNames = rowNames)  
   ci <- quantile(bootstrap, c(0.025, 0.975))
+  # Alternative: impose normal distribution for efficiency:
+  # ci <- qnorm(c(0.025, 0.975), mean(bootstrap), sd(bootstrap))
   return(ci)
 }
