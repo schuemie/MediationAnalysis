@@ -124,6 +124,15 @@ fitModel <- function(data, settings) {
       CohortMethod::matchOnPs(maxRatio = 100) %>%
       select(-"propensityScore", -"treatment", -"rowId")
     f <- update(f, ~ . + strata(stratumId))
+    
+    # Remove non-informative strata:
+    nonInformativeStratumIds <- data %>%
+      group_by(stratumId) %>%
+      summarise(total = sum(y)) %>%
+      filter(total == 0) %>%
+      pull(stratumId)
+    data <- data %>%
+      filter(!stratumId %in% nonInformativeStratumIds)
   } else if (settings$psAdjustment == "model") {
     f <- update(f, ~ . + ns(ps, 5))
   } else if (settings$psAdjustment == "covariates") {
@@ -176,16 +185,14 @@ fitModel <- function(data, settings) {
   se1 <- summary(fit1)$coef["aTRUE", 3]
   
   # Without mediator:
-  fit2 <- coxph(Surv(tStart, tEnd, y) ~ a, data = data)
-  # fit2 <- coxph(f, data = data)
+  fit2 <- coxph(f, data = data)
   ci2 <- confint(fit2)
   e2 <- coef(fit2)
   se2 <- summary(fit2)$coef["aTRUE", 3]
   
-    # log difference with vs without mediator:
+  # log difference with vs without mediator:
   logDiff <- e2["aTRUE"] - e1["aTRUE"]
-  seLogDiff <- sqrt(se1^2 / e1["aTRUE"]^2 + se2^2 / e2["aTRUE"]^2)
-  logDiffCi <- logDiff + qnorm(c(0.025, 0.975)) * seLogDiff
+  logDiffCi <- computeIndirectEffectCi(data, f)
   result <- tibble(mainLogHr = e1["aTRUE"],
                    mainLogLb = ci1["aTRUE", 1],
                    mainLogUb = ci1["aTRUE", 2],
@@ -200,4 +207,17 @@ fitModel <- function(data, settings) {
                    mainLogUbDiff = logDiffCi[2],
                    hrIndirect = data$hrIndirect[1])
   return(result)
+}
+
+singleBootstrapSample <- function(dummy, data, f) {
+  data <- data[sample.int(nrow(data), nrow(data), replace = TRUE), ]
+  fit1 <- coxph(update(f, ~ . + m), data = data)
+  fit2 <- coxph(f, data = data)
+  return(coef(fit2)["aTRUE"] - coef(fit1)["aTRUE"])
+}
+
+computeIndirectEffectCi <- function(data, f) {
+  bootstrap <- sapply(seq_len(100), singleBootstrapSample, data = data, f = f)  
+  ci <- quantile(bootstrap, c(0.025, 0.975))
+  return(ci)
 }
