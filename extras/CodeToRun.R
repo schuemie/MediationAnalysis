@@ -4,12 +4,11 @@ folder <- "Simulation"
 ssList <- list()
 msList <- list()
 
-ssList[[length(ssList) + 1]] <- createSimulationSettings()
-ssList[[length(ssList) + 1]] <- createSimulationSettings(mA = log(4))
-ssList[[length(ssList) + 1]] <- createSimulationSettings(mA = log(0.5))
-ssList[[length(ssList) + 1]] <- createSimulationSettings(yA = log(2))
-ssList[[length(ssList) + 1]] <- createSimulationSettings(yA = log(2), mA = log(4))
-ssList[[length(ssList) + 1]] <- createSimulationSettings(yA = log(2), mA = log(0.5))
+ssList[[length(ssList) + 1]] <- createAbstractSimulationSettings()
+ssList[[length(ssList) + 1]] <- createAbstractSimulationSettings(mA = log(0.5))
+ssList[[length(ssList) + 1]] <- createAbstractSimulationSettings(mA = log(0.5), confoundingAymSd = 2)
+ssList[[length(ssList) + 1]] <- createAbstractSimulationSettings(yA = log(2))
+ssList[[length(ssList) + 1]] <- createAbstractSimulationSettings(yA = log(2), mA = log(0.5))
 
 msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
                                                     mrs = "fit",

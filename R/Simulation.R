@@ -1,4 +1,4 @@
-# Copyright 2023 Observational Health Data Sciences and Informatics
+# Copyright 2024 Observational Health Data Sciences and Informatics
 #
 # This file is part of MediationAnalysis
 #
@@ -56,6 +56,66 @@ createSimulationSettings <- function(n = 1000,
   for (name in names(formals("createSimulationSettings"))) {
     settings[[name]] <- get(name)
   }
+  class(settings) <- "SimulationSettings"
+  return(settings)
+}
+
+#' Create simulation settings specifying confounding levels
+#'
+#' @param n          Number of subject to simulate.
+#' @param nX         Number of covariates to simulate.
+#' @param hCensor    Hazard for random censoring.
+#' @param aIntercept Intercept for probability of treatment (log scale).  
+#' @param confoundingAySd  SD for the coefficients of the confounders between exposure and outcome.
+#' @param confoundingmYSd  SD for the coefficients of the confounders between mediator and outcome.
+#' @param confoundingAymSd SD for the coefficients of the confounders between exposure, mediator, and outcome.
+#' @param mIntercept Intercept for hazard of mediator (log scale)
+#' @param mA         Coefficient for hazard of mediator for the treatment. (log
+#'                   scale).
+#' @param yIntercept Intercept for hazard of outcome. (log scale)
+#' @param yA         Coefficient for the hazard of the outcome for treatment. 
+#'                   (log scale).
+#' @param yM         Coefficeint for the hazard of the outcome for the mediator.
+#'                   (log scale).
+#'
+#' @return An abstract simulation settings object.
+#' 
+#' @export
+createAbstractSimulationSettings <- function(n = 1000,
+                                             nX = 8,
+                                             hCensor = 0.1,
+                                             aIntercept = log(0.5),
+                                             confoundingAySd = 0.5,
+                                             confoundingmYSd = 0.5,
+                                             confoundingAymSd = 0.5,
+                                             mIntercept = log(0.1),
+                                             mA = log(2),
+                                             yIntercept = log(0.05),
+                                             yA = log(0.5),
+                                             yM = log(1.5)) {
+  settings <- list()
+  for (name in names(formals("createAbstractSimulationSettings"))) {
+    settings[[name]] <- get(name)
+  }
+  class(settings) <- "AbstractSimulationSettings"
+  return(settings)
+}
+
+instantiateSimulationSettings <- function(abstractSettings) {
+  settings <- abstractSettings
+  settings$aX <- c(rnorm(2, 0, abstractSettings$confoundingAySd),
+                   0, 0,
+                   rnorm(2, 0, abstractSettings$confoundingAymSd),
+                   0, 0)
+  settings$mX <- c(0, 0,
+                   rnorm(2, 0, abstractSettings$confoundingmYSd),
+                   rnorm(2, 0, abstractSettings$confoundingAymSd),
+                   0, 0)
+  settings$yX <- c(rnorm(2, 0, abstractSettings$confoundingAySd),
+                   rnorm(2, 0, abstractSettings$confoundingmYSd),
+                   rnorm(2, 0, abstractSettings$confoundingAymSd),
+                   0, 0)
+  class(settings) <- "SimulationSettings"
   return(settings)
 }
 
@@ -66,7 +126,8 @@ logistic <- function(x) {
 
 #' Simulate data
 #'
-#' @param settings A simulation settings object as created using `createSimulationSettings()`.
+#' @param settings A simulation settings object as created using `createSimulationSettings()` or 
+#' `createAbstractSimulationSettings()`
 #'
 #' @return
 #' A tibble with one row per subject and the following columns:
@@ -85,6 +146,9 @@ logistic <- function(x) {
 #' 
 #' @export
 simulateData <- function(settings) {
+  if (is(settings, "AbstractSimulationSettings")) {
+    settings <- instantiateSimulationSettings(settings)
+  }
   x <- matrix(runif(settings$n * settings$nX), ncol = settings$nX)
   colnames(x) <- paste0("x", seq_len(settings$nX))
   pA <- logistic(settings$aIntercept + x %*% settings$aX)[, 1]

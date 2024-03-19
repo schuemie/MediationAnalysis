@@ -7,7 +7,8 @@
 simulateData(settings)
 }
 \arguments{
-\item{settings}{A simulation settings object as created using \code{createSimulationSettings()}.}
+\item{settings}{A simulation settings object as created using \code{createSimulationSettings()} or
+\code{createAbstractSimulationSettings()}}
 }
 \value{
 A tibble with one row per subject and the following columns:

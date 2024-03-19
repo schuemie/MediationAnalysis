@@ -1,4 +1,4 @@
-# Copyright 2023 Observational Health Data Sciences and Informatics
+# Copyright 2024 Observational Health Data Sciences and Informatics
 #
 # This file is part of MediationAnalysis
 #
@@ -46,7 +46,6 @@ runSetOfSimulations <- function(folder,
   cluster <- ParallelLogger::makeCluster(maxCores)
   on.exit(ParallelLogger::stopCluster(cluster))
   allResults <- list()
-  nScenarios <- length(simulationSettingsList) * length(modelSettingsList)
   # simulationSettings = simulationSettingsList[[1]]
   # modelSettings = modelSettingsList[[1]]
   for (i in seq_along(simulationSettingsList)) {
@@ -91,6 +90,8 @@ runOneSimulation <- function(seed, simulationSettings, modelSettingsList) {
 }
 
 evaluateSingleResult <- function(simulationSettings, modelSettings, estimates) {
+  nonEstimableIdx <- is.na(estimates$mainLogDiff)
+  estimates <- estimates[!nonEstimableIdx, ]
   hasIndirectEffect <- simulationSettings$mA != 0 & simulationSettings$yM != 0
   results <- tibble(
     coverageDirectEffect = mean(simulationSettings$yA >= estimates$directLogLb & 
@@ -110,12 +111,16 @@ evaluateSingleResult <- function(simulationSettings, modelSettings, estimates) {
     mseMainEffect = mean((log(estimates$hrMain) - estimates$mainLogHr)^2),
     mseIndirectEffect = mean((log(estimates$hrIndirect) - estimates$mainLogDiff)^2),
     indirectType1Error = if_else(hasIndirectEffect, NA, mean(estimates$mainLogLbDiff > 0 | estimates$mainLogUbDiff < 0)),
-    indirectType2Error = if_else(hasIndirectEffect, mean(estimates$mainLogLbDiff <= 0 & estimates$mainLogUbDiff >= 0), NA)
+    indirectType2Error = if_else(hasIndirectEffect, mean(estimates$mainLogLbDiff <= 0 & estimates$mainLogUbDiff >= 0), NA),
+    nonEstimableFraction = mean(nonEstimableIdx)
   )
   simSettingsForOutput <- simulationSettings
-  simSettingsForOutput$aX <- paste(simSettingsForOutput$aX, collapse = ", ")
-  simSettingsForOutput$mX <- paste(simSettingsForOutput$mX, collapse = ", ")
-  simSettingsForOutput$yX <- paste(simSettingsForOutput$yX, collapse = ", ")
+  class(simSettingsForOutput) <- "list"
+  if (is(simSettingsForOutput, "SimulationSettings")) {
+    simSettingsForOutput$aX <- paste(simSettingsForOutput$aX, collapse = ", ")
+    simSettingsForOutput$mX <- paste(simSettingsForOutput$mX, collapse = ", ")
+    simSettingsForOutput$yX <- paste(simSettingsForOutput$yX, collapse = ", ")
+  }
   results <- results %>% 
     bind_cols(as_tibble(modelSettings)) %>%
     bind_cols(as_tibble(simSettingsForOutput))

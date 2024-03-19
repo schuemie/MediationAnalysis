@@ -1,4 +1,4 @@
-# Copyright 2023 Observational Health Data Sciences and Informatics
+# Copyright 2024 Observational Health Data Sciences and Informatics
 #
 # This file is part of MediationAnalysis
 #
@@ -129,12 +129,12 @@ fitModel <- function(data, settings) {
     
     # Remove non-informative strata:
     nonInformativeStratumIds <- data %>%
-      group_by(stratumId) %>%
-      summarise(total = sum(y)) %>%
-      filter(total == 0) %>%
-      pull(stratumId)
+      group_by(.data$stratumId) %>%
+      summarise(total = sum(.data$y)) %>%
+      filter(.data$total == 0) %>%
+      pull(.data$stratumId)
     data <- data %>%
-      filter(!stratumId %in% nonInformativeStratumIds)
+      filter(!.data$stratumId %in% nonInformativeStratumIds)
   } else if (settings$psAdjustment == "model") {
     f <- update(f, ~ . + ns(ps, 5))
   } else if (settings$psAdjustment == "covariates") {
@@ -181,29 +181,45 @@ fitModel <- function(data, settings) {
     filter(.data$tEnd - .data$tStart > 0.0001)
   
   # With mediator:
-  fit1 <- coxph(update(f, ~ . + m), data = data)
-  ci1 <- confint(fit1)
-  e1 <- coef(fit1)
-  se1 <- summary(fit1)$coef["aTRUE", 3]
+  fit1 <- tryCatch(coxph(update(f, ~ . + m), data = data), error = function(e) "Error")
+  if (is.character(fit1)) {
+    directCi <- c(NA, NA)
+    directLogHr <- NA 
+    mediatorCi <- c(NA, NA)
+    mediatorLogHr <- NA 
+  } else {
+    directCi <- confint(fit1, "aTRUE")
+    directLogHr <- coef(fit1)["aTRUE"] 
+    mediatorCi <- confint(fit1, "mTRUE")
+    mediatorLogHr <- coef(fit1)["mTRUE"] 
+  }
   
   # Without mediator:
-  fit2 <- coxph(f, data = data)
-  ci2 <- confint(fit2)
-  e2 <- coef(fit2)
-  se2 <- summary(fit2)$coef["aTRUE", 3]
+  fit2 <- tryCatch(coxph(f, data = data), error = function(e) "Error")
+  if (is.character(fit2)) {
+    mainCi <- c(NA, NA)
+    mainLogHr <- NA 
+  } else {
+    mainCi <- confint(fit2, "aTRUE")
+    mainLogHr <- coef(fit2)["aTRUE"] 
+  }
   
   # log difference with vs without mediator:
-  logDiff <- e2["aTRUE"] - e1["aTRUE"]
-  logDiffCi <- computeIndirectEffectCi(data, f)
-  result <- tibble(directLogHr = e1["aTRUE"],
-                   directLogLb = ci1["aTRUE", 1],
-                   directLogUb = ci1["aTRUE", 2],
-                   mediatorLogHr = e1["mTRUE"],
-                   mediatorLogLb = ci1["mTRUE", 1],
-                   mediatorLogUb = ci1["mTRUE", 2],
-                   mainLogHr = e2["aTRUE"],
-                   mainLogLb = ci2["aTRUE", 1],
-                   mainLogUb = ci2["aTRUE", 2],
+  logDiff <- mainLogHr - directLogHr
+  if (is.na(logDiff)) {
+    logDiffCi <- c(NA, NA)
+  } else {
+    logDiffCi <- computeIndirectEffectCi(data, f)
+  }
+  result <- tibble(directLogHr = directLogHr,
+                   directLogLb = directCi[1],
+                   directLogUb = directCi[2],
+                   mediatorLogHr = mediatorLogHr,
+                   mediatorLogLb = mediatorCi[1],
+                   mediatorLogUb = mediatorCi[2],
+                   mainLogHr = mainLogHr,
+                   mainLogLb = mainCi[1],
+                   mainLogUb = mainCi[2],
                    mainLogDiff = logDiff,
                    mainLogLbDiff = logDiffCi[1],
                    mainLogUbDiff = logDiffCi[2],
@@ -220,9 +236,16 @@ singleBootstrapSample <- function(dummy, x, y, stratumId, rowNames) {
     stratumId <- stratumId[idx]
   }
   control <- coxph.control()
-  fit1 <- agreg.fit(x, y, stratumId, control = control, method = "efron", rownames = rowNames,  init = rep(0,ncol(x)))
-  fit2 <- agreg.fit(x[, -ncol(x), drop = FALSE], y, stratumId, control = control, method = "efron", rownames = rowNames,  init = rep(0, ncol(x)-1))
-  return(fit2$coefficients[1] - fit1$coefficients[1])
+  tryCatch({
+    suppressWarnings({
+      fit1 <- agreg.fit(x, y, stratumId, control = control, method = "efron", rownames = rowNames,  init = rep(0,ncol(x)))
+      fit2 <- agreg.fit(x[, -ncol(x), drop = FALSE], y, stratumId, control = control, method = "efron", rownames = rowNames,  init = rep(0, ncol(x)-1))
+    })
+    return(fit2$coefficients[1] - fit1$coefficients[1])
+  },
+  error = function(e) {
+    return(NA)
+  })
 }
 
 computeIndirectEffectCi <- function(data, f) {
@@ -240,7 +263,7 @@ computeIndirectEffectCi <- function(data, f) {
   # Creating a character vector is slow, so do only once:
   rowNames <- as.character(seq_len(nrow(x)))
   bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, stratumId = stratumId, rowNames = rowNames)  
-  ci <- quantile(bootstrap, c(0.025, 0.975))
+  ci <- quantile(bootstrap, c(0.025, 0.975), na.rm = TRUE)
   # Alternative: impose normal distribution for efficiency:
   # ci <- qnorm(c(0.025, 0.975), mean(bootstrap), sd(bootstrap))
   return(ci)

@@ -19,7 +19,8 @@ Imports:
 	digest,
 	rlang,
 	Cyclops,
-	readr
+	readr,
+	methods
 License: Apache License 2.0
 RoxygenNote: 7.2.3
 Roxygen: list(markdown = TRUE)

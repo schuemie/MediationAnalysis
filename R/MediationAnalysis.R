@@ -1,4 +1,4 @@
-# Copyright 2023 Observational Health Data Sciences and Informatics
+# Copyright 2024 Observational Health Data Sciences and Informatics
 #
 # This file is part of MediationAnalysis
 #
@@ -21,5 +21,6 @@
 #' @import survival
 #' @import splines
 #' @importFrom rlang .data
-#' @importFrom stats as.formula coef confint formula predict rexp runif update
+#' @importFrom methods is
+#' @importFrom stats as.formula coef confint formula predict rexp runif update model.matrix quantile rnorm
 NULL
