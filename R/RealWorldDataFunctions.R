@@ -14,6 +14,83 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-createMediatorRiskScore <- function(cohortMethodData, mediatorId) {
+#' Create the mediator risk score
+#'
+#' @param cohortMethodData An object of type `CohortMethodData` as generated using `CohortMethod::getDbCohortMethodData()`.
+#' @param mediatorId       The outcome ID corresponding to the mediator.
+#' @param prior            The prior used to fit the model. See `Cyclops::createPrior()` for details.
+#' @param control	         The control object used to control the cross-validation used to determine the hyperparameters 
+#'                         of the prior (if applicable). See `Cyclops::createControl()` for details.
+#' @return
+#' A tibble with the mediator risk score (MRS).
+#' 
+#' @export
+createMediatorRiskScore <- function(cohortMethodData, 
+                                    mediatorId,
+                                    prior = createPrior("laplace", exclude = c(0), useCrossValidation = TRUE),
+                                    control = createControl(noiseLevel = "silent", 
+                                                            cvType = "auto", 
+                                                            seed = 1,
+                                                            resetCoefficients = TRUE, 
+                                                            tolerance = 2e-07, 
+                                                            cvRepetitions = 1, 
+                                                            fold = 10,
+                                                            startingVariance = 0.01)) {
   covariateData <- FeatureExtraction::tidyCovariateData(cohortMethodData)
+  studyPop <- CohortMethod::createStudyPopulation(
+    cohortMethodData = cohortMethodData,
+    outcomeId = mediatorId,
+    removeDuplicateSubjects = "keep all",
+    removeSubjectsWithPriorOutcome = FALSE
+  )
+  covariateData$outcomes <- studyPop %>%
+    mutate(y = outcomeCount > 0) %>%
+    select("rowId", time = "survivalTime", "y")
+  cyclopsData <- Cyclops::convertToCyclopsData(
+    outcomes = covariateData$outcomes,
+    covariates = covariateData$covariates,
+    modelType = "pr"
+  )
+  fit <- Cyclops::fitCyclopsModel(cyclopsData, prior = prior, control = control) 
+  covariateData$outcomes <- cohortMethodData$cohorts %>%
+    mutate(time = 1)
+  mrs <- predict(fit, 
+                 newOutcomes = covariateData$outcomes,
+                 newCovariates = covariateData$covariates)
+  mrs <- covariateData$outcomes %>%
+    select("rowId", "treatment") %>%
+    collect() %>%
+    mutate(mrs = mrs)
+  return(mrs)
+}
+
+#' Plot the mediator risk score
+#'
+#' @param mrs             A tibble containing the MRS as created by `createMrs()`.
+#' @param targetLabel     A label to us for the target cohort.
+#' @param comparatorLabel A label to us for the comparator cohort.
+#'
+#' @return
+#' A ggplot object. Use the `ggplot2::ggsave()` function to save to file in a different format.
+#' 
+#' @export
+plotMrs <- function(mrs,
+                    targetLabel = "Target",
+                    comparatorLabel = "Comparator") {
+  mrs <- mrs %>%
+    mutate(label = if_else(treatment == 1, targetLabel, comparatorLabel))
+  mrs$label <- factor(mrs$label, levels = c(targetLabel, comparatorLabel))
+  plot <- ggplot2::ggplot(mrs, ggplot2::aes(x = mrs, color = label, group = label, fill = label)) +
+    ggplot2::geom_density() +
+    ggplot2::scale_fill_manual(values = c(
+      rgb(0.8, 0, 0, alpha = 0.5),
+      rgb(0, 0, 0.8, alpha = 0.5)
+    )) +
+    ggplot2::scale_color_manual(values = c(
+      rgb(0.8, 0, 0, alpha = 0.5),
+      rgb(0, 0, 0.8, alpha = 0.5)
+    )) +
+    ggplot2::scale_x_log10("Mediator risk score") +
+    ggplot2::theme(legend.title = ggplot2::element_blank(), legend.position = "top")
+  return(plot)
 }
