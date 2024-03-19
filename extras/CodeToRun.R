@@ -29,7 +29,7 @@ msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
 runSetOfSimulations(folder = folder, 
                     simulationSettingsList = ssList, 
                     modelSettingsList = msList,
-                    nSimulations = 1000,
-                    maxCores = 14) 
+                    nSimulations = 100,
+                    maxCores = 10) 
 
 

@@ -47,67 +47,77 @@ runSetOfSimulations <- function(folder,
   on.exit(ParallelLogger::stopCluster(cluster))
   allResults <- list()
   nScenarios <- length(simulationSettingsList) * length(modelSettingsList)
-  i <- 1
-  # ParallelLogger::clusterRequire(cluster, "MediationAnalysis")
   # simulationSettings = simulationSettingsList[[1]]
   # modelSettings = modelSettingsList[[1]]
-  for (simulationSettings in simulationSettingsList) {
-    for (modelSettings in modelSettingsList) {
-      message(sprintf("Running scenario %d of %d", i, nScenarios))
-      fileName <- file.path(folder, 
-                            sprintf("result_%s.rds", 
-                                    digest::digest(list(modelSettings, simulationSettings))))
-      if (file.exists(fileName)) {
-        summaryResults <- readRDS(fileName)
-      } else {
-        results <- ParallelLogger::clusterApply(cluster, 
+  for (i in seq_along(simulationSettingsList)) {
+    simulationSettings <- simulationSettingsList[[i]]
+    message(sprintf("Running scenario %d of %d", i, length(simulationSettingsList)))
+    fileName <- file.path(folder, 
+                          sprintf("result_%s.rds", 
+                                  digest::digest(list(simulationSettings))))
+    if (file.exists(fileName)) {
+      results <- readRDS(fileName)
+    } else {
+      estimates <- ParallelLogger::clusterApply(cluster, 
                                                 seq_len(nSimulations), 
-                                                MediationAnalysis:::runOneSimulation, 
+                                                runOneSimulation, 
                                                 simulationSettings = simulationSettings,
-                                                modelSettings = modelSettings)
-        results <- results %>%
+                                                modelSettingsList = modelSettingsList)
+      results <- list()
+      for (j in seq_along(modelSettingsList)) {
+        modelSettings <- modelSettingsList[[j]]
+        modelEstimates <- lapply(estimates, function(x) x[[j]]) %>%
           bind_rows()
-        hasIndirectEffect <- simulationSettings$mA != 0 & simulationSettings$yM != 0
-        summaryResults <- tibble(
-          coverageDirectEffect = mean(simulationSettings$yA >= results$directLogLb & 
-                                      simulationSettings$yA <= results$directLogUb),
-          coverageMediatorEffect = mean(simulationSettings$yM >= results$mediatorLogLb & 
-                                          simulationSettings$yM <= results$mediatorLogUb),
-          covarageMainEffect = mean(log(results$hrMain) >= results$mainLogLb &
-                                          log(results$hrMain) <= results$mainLogUb),
-          covarageIndirectEffect = mean(log(results$hrIndirect) >= results$mainLogLbDiff &
-                                          log(results$hrIndirect) <= results$mainLogUbDiff),
-          biasDirectEffect = mean(simulationSettings$yA - results$directLogHr),
-          biasMediatorEffect = mean(simulationSettings$yA - results$mainLogHr),
-          biasMainEffect = mean(log(results$hrMain) - results$mainLogHr),
-          biasIndirectEffect = mean(log(results$hrIndirect) - results$mainLogDiff),
-          mseDirectEffect = mean((simulationSettings$yA - results$directLogHr)^2),
-          msesMediatorEffect = mean((simulationSettings$yA - results$mainLogHr)^2),
-          mseMainEffect = mean((log(results$hrMain) - results$mainLogHr)^2),
-          mseIndirectEffect = mean((log(results$hrIndirect) - results$mainLogDiff)^2),
-          indirectType1Error = if_else(hasIndirectEffect, NA, mean(results$mainLogLbDiff > 0 | results$mainLogUbDiff < 0)),
-          indirectType2Error = if_else(hasIndirectEffect, mean(results$mainLogLbDiff <= 0 & results$mainLogUbDiff >= 0), NA)
-        )
-        simSettingsForOutput <- simulationSettings
-        simSettingsForOutput$aX <- paste(simSettingsForOutput$aX, collapse = ", ")
-        simSettingsForOutput$mX <- paste(simSettingsForOutput$mX, collapse = ", ")
-        simSettingsForOutput$yX <- paste(simSettingsForOutput$yX, collapse = ", ")
-        summaryResults <- summaryResults %>% 
-          bind_cols(as_tibble(modelSettings)) %>%
-          bind_cols(as_tibble(simSettingsForOutput))
-        saveRDS(summaryResults, fileName)
+        results[[j]] <- evaluateSingleResult(simulationSettings, modelSettings, modelEstimates)
       }
-      allResults[[i]] <- summaryResults
-      i <- i + 1
+      results <- bind_rows(results)
+      saveRDS(results, fileName)
     }
+    allResults[[i]] <- results
   }
   allResults <- bind_rows(allResults)
   readr::write_csv(allResults, file.path(folder, "Results.csv"))
 }
 
-runOneSimulation <- function(seed, simulationSettings, modelSettings) {
+runOneSimulation <- function(seed, simulationSettings, modelSettingsList) {
   set.seed(seed)
   data <- simulateData(simulationSettings)
-  estimates <- fitModel(data, modelSettings)
+  estimates <- list()
+  for (i in seq_along(modelSettingsList)) {
+    modelSettings <- modelSettingsList[[i]]
+    estimates[[i]] <- fitModel(data, modelSettings)
+  }
   return(estimates)
+}
+
+evaluateSingleResult <- function(simulationSettings, modelSettings, estimates) {
+  hasIndirectEffect <- simulationSettings$mA != 0 & simulationSettings$yM != 0
+  results <- tibble(
+    coverageDirectEffect = mean(simulationSettings$yA >= estimates$directLogLb & 
+                                  simulationSettings$yA <= estimates$directLogUb),
+    coverageMediatorEffect = mean(simulationSettings$yM >= estimates$mediatorLogLb & 
+                                    simulationSettings$yM <= estimates$mediatorLogUb),
+    covarageMainEffect = mean(log(estimates$hrMain) >= estimates$mainLogLb &
+                                log(estimates$hrMain) <= estimates$mainLogUb),
+    covarageIndirectEffect = mean(log(estimates$hrIndirect) >= estimates$mainLogLbDiff &
+                                    log(estimates$hrIndirect) <= estimates$mainLogUbDiff),
+    biasDirectEffect = mean(simulationSettings$yA - estimates$directLogHr),
+    biasMediatorEffect = mean(simulationSettings$yA - estimates$mainLogHr),
+    biasMainEffect = mean(log(estimates$hrMain) - estimates$mainLogHr),
+    biasIndirectEffect = mean(log(estimates$hrIndirect) - estimates$mainLogDiff),
+    mseDirectEffect = mean((simulationSettings$yA - estimates$directLogHr)^2),
+    msesMediatorEffect = mean((simulationSettings$yA - estimates$mainLogHr)^2),
+    mseMainEffect = mean((log(estimates$hrMain) - estimates$mainLogHr)^2),
+    mseIndirectEffect = mean((log(estimates$hrIndirect) - estimates$mainLogDiff)^2),
+    indirectType1Error = if_else(hasIndirectEffect, NA, mean(estimates$mainLogLbDiff > 0 | estimates$mainLogUbDiff < 0)),
+    indirectType2Error = if_else(hasIndirectEffect, mean(estimates$mainLogLbDiff <= 0 & estimates$mainLogUbDiff >= 0), NA)
+  )
+  simSettingsForOutput <- simulationSettings
+  simSettingsForOutput$aX <- paste(simSettingsForOutput$aX, collapse = ", ")
+  simSettingsForOutput$mX <- paste(simSettingsForOutput$mX, collapse = ", ")
+  simSettingsForOutput$yX <- paste(simSettingsForOutput$yX, collapse = ", ")
+  results <- results %>% 
+    bind_cols(as_tibble(modelSettings)) %>%
+    bind_cols(as_tibble(simSettingsForOutput))
+  return(results)
 }
