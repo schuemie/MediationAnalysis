@@ -5,8 +5,11 @@ ssList <- list()
 msList <- list()
 
 ssList[[length(ssList) + 1]] <- createSimulationSettings()
-# ssList[[length(ssList) + 1]] <- createSimulationSettings(mA = log(4))
-# ssList[[length(ssList) + 1]] <- createSimulationSettings(mA = log(0.5))
+ssList[[length(ssList) + 1]] <- createSimulationSettings(mA = log(4))
+ssList[[length(ssList) + 1]] <- createSimulationSettings(mA = log(0.5))
+ssList[[length(ssList) + 1]] <- createSimulationSettings(yA = log(2))
+ssList[[length(ssList) + 1]] <- createSimulationSettings(yA = log(2), mA = log(4))
+ssList[[length(ssList) + 1]] <- createSimulationSettings(yA = log(2), mA = log(0.5))
 
 msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
                                                     mrs = "fit",
@@ -27,6 +30,6 @@ runSetOfSimulations(folder = folder,
                     simulationSettingsList = ssList, 
                     modelSettingsList = msList,
                     nSimulations = 1000,
-                    maxCores = 10) 
+                    maxCores = 14) 
 
 
