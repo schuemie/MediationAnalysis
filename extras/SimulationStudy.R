@@ -1,3 +1,5 @@
+# Code to execute the full simulation study
+
 library(MediationAnalysis)
 
 folder <- "Simulation"
@@ -52,6 +54,6 @@ runSetOfSimulations(folder = folder,
                     simulationSettingsList = ssList, 
                     modelSettingsList = msList,
                     nSimulations = 1000,
-                    maxCores = 10) 
+                    maxCores = 25) 
 
 

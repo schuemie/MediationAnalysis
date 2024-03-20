@@ -85,7 +85,11 @@ fitModel <- function(data, settings) {
     psF <- as.formula(paste("a ~ ", paste(xNames, collapse = " + ")))
     cyclopsData <- Cyclops::createCyclopsData(psF, data = data, modelType = "lr")
     fit <- Cyclops::fitCyclopsModel(cyclopsData)
-    data$ps <- predict(fit)
+    if (fit$return_flag != "SUCCESS") {
+      data$ps <- data$a
+    } else {
+      data$ps <- predict(fit)
+    }
   } else {
     stop("Unknown PS source: ", settings$ps) 
   }
@@ -97,7 +101,11 @@ fitModel <- function(data, settings) {
     psF <- as.formula(paste("m ~ offset(log(tM)) + ", paste(xNames, collapse = " + ")))
     cyclopsData <- Cyclops::createCyclopsData(psF, data = data, modelType = "pr")
     fit <- Cyclops::fitCyclopsModel(cyclopsData)
-    data$mrs <- predict(fit) / data$tM
+    if (fit$return_flag != "SUCCESS") {
+      data$mrs <- 0
+    } else {
+      data$mrs <- predict(fit) / data$tM
+    }
   } else {
     stop("Unknown PS source: ", settings$ps) 
   }
