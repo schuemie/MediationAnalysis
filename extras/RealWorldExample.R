@@ -103,6 +103,11 @@ plotPs(ps, showEquiposeLabel = TRUE)
 
 mrs <- createMediatorRiskScore(cohortMethodData = cmData, 
                                mediatorId = 10870,
+                               removeDuplicateSubjects = "keep first",
+                               riskWindowStart = 0,
+                               startAnchor = "cohort start",
+                               riskWindowEnd = 0,
+                               endAnchor = "cohort end",
                                control = createControl(noiseLevel = "quiet", 
                                                        cvType = "auto", 
                                                        seed = 1,

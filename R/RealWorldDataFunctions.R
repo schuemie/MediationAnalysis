@@ -27,6 +27,11 @@
 #' @export
 createMediatorRiskScore <- function(cohortMethodData, 
                                     mediatorId,
+                                    removeDuplicateSubjects = "keep all",
+                                    riskWindowStart = 0,
+                                    startAnchor = "cohort start",
+                                    riskWindowEnd = 0,
+                                    endAnchor = "cohort end",
                                     prior = createPrior("laplace", exclude = c(0), useCrossValidation = TRUE),
                                     control = createControl(noiseLevel = "silent", 
                                                             cvType = "auto", 
@@ -40,8 +45,12 @@ createMediatorRiskScore <- function(cohortMethodData,
   studyPop <- CohortMethod::createStudyPopulation(
     cohortMethodData = cohortMethodData,
     outcomeId = mediatorId,
-    removeDuplicateSubjects = "keep all",
-    removeSubjectsWithPriorOutcome = FALSE
+    removeDuplicateSubjects = removeDuplicateSubjects,
+    removeSubjectsWithPriorOutcome = FALSE,
+    riskWindowStart = riskWindowStart,
+    startAnchor = startAnchor,
+    riskWindowEnd = riskWindowEnd,
+    endAnchor = endAnchor
   )
   covariateData$outcomes <- studyPop %>%
     mutate(y = outcomeCount > 0) %>%
@@ -57,10 +66,20 @@ createMediatorRiskScore <- function(cohortMethodData,
   mrs <- predict(fit, 
                  newOutcomes = covariateData$outcomes,
                  newCovariates = covariateData$covariates)
+  
+  # daysToMediator <- cohortMethodData$outcomes %>%
+  #   filter(.data$outcomeId == mediatorId, .data$daysToEvent >= 0) %>%
+  #   group_by(.data$rowId) %>%
+  #   summarise(daysToMediator = min(.data$daysToEvent, na.rm = TRUE)) %>%
+  #   collect()
   mrs <- covariateData$outcomes %>%
     select("rowId", "treatment") %>%
     collect() %>%
-    mutate(mrs = mrs)
+    mutate(mrs = mrs) %>%
+    left_join(studyPop %>%
+                filter(.data$outcomeCount > 0) %>%
+                select("rowId", daysToMediator = "survivalTime"),
+              by = join_by("rowId"))
   return(mrs)
 }
 
@@ -76,12 +95,13 @@ createMediatorRiskScore <- function(cohortMethodData,
 #' @export
 plotMrs <- function(mrs,
                     targetLabel = "Target",
-                    comparatorLabel = "Comparator") {
+                    comparatorLabel = "Comparator",
+                    showFraction = TRUE) {
   mrs <- mrs %>%
     mutate(label = if_else(treatment == 1, targetLabel, comparatorLabel))
   mrs$label <- factor(mrs$label, levels = c(targetLabel, comparatorLabel))
-  plot <- ggplot2::ggplot(mrs, ggplot2::aes(x = mrs, color = label, group = label, fill = label)) +
-    ggplot2::geom_density() +
+  plot <- ggplot2::ggplot(mrs, ggplot2::aes(x = mrs)) +
+    ggplot2::geom_density(ggplot2::aes(color = label, group = label, fill = label)) +
     ggplot2::scale_fill_manual(values = c(
       rgb(0.8, 0, 0, alpha = 0.5),
       rgb(0, 0, 0.8, alpha = 0.5)
@@ -92,5 +112,23 @@ plotMrs <- function(mrs,
     )) +
     ggplot2::scale_x_log10("Mediator risk score") +
     ggplot2::theme(legend.title = ggplot2::element_blank(), legend.position = "top")
+  if (showFraction) {
+    labelData <- data.frame(text = sprintf("%0.2f%% have the mediator", 100*mean(!is.na(mrs$daysToMediator))))
+    y <- max(density(log10(mrs$mrs[mrs$treatment == 1]))$y, density(log10(mrs$mrs[mrs$treatment == 0]))$y)
+    # Weird bug in ggplot2: log transform is not applied to geom_label x coordinates:
+    plot <- plot + ggplot2::geom_label(x = log10(max(mrs$mrs)), y = y, hjust = "right", vjust = "top", alpha = 0.8, ggplot2::aes(label = text), data = labelData, size = 3.5)
+  }
+  # plot
   return(plot)
 }
+
+fitMediatorModel <- function(studyPopulation, 
+                             ps, 
+                             mrs,  
+                             psAdjustment = "matching", 
+                             mrsAdjustment = "model", 
+                             mediatorType = "time-to-event") {
+  
+}
+
+
