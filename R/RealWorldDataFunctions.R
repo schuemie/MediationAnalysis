@@ -122,13 +122,52 @@ plotMrs <- function(mrs,
   return(plot)
 }
 
+#' Fit mediator model using real-world data
+#'
+#' @param studyPopulation The study population as created using the `CohortMethod::createStudyPopulation()` 
+#'                        function, with `outcomeId` specifying the outcome of interest.
+#' @param ps              The propensity score object as created using the `CohortMethod::createPs()` function.
+#' @param mrs             The mediator risk score object as created using the `createMrs()` function.
+#' @param psAdjustment    Type of PS adjustment. Can be "matching", "model", 
+#'                        "2D matching", or "none".
+#' @param mrsAdjustment   Type of MRS adjustment. Can be "model", "2D matching", 
+#'                        or "none".
+#' @param mediatorType    Type of mediator in the model. Can be "time-to-event" or
+#'                        "binary".
+#'
+#' @return
+#' Returns a data frame with one row, and columns for the various model estimands.
+#' 
+#' @export
 fitMediatorModel <- function(studyPopulation, 
                              ps, 
                              mrs,  
-                             psAdjustment = "matching", 
-                             mrsAdjustment = "model", 
+                             psAdjustment = "matching",
+                             mrsAdjustment = "model",
                              mediatorType = "time-to-event") {
-  
+  settings <- createModelsettings(
+    psAdjustment = psAdjustment,
+    mrsAdjustment = mrsAdjustment,
+    mediatorType = mediatorType
+  )
+  data <- studyPopulation %>%
+    inner_join(ps %>%
+                 select("rowId", "propensityScore"),
+               by = join_by("rowId")) %>%
+    inner_join(mrs %>%
+                 select("rowId", "mrs", "daysToMediator"),
+               by = join_by("rowId")) %>%
+    transmute(a = .data$treatment == 1,
+              tStart = 0,
+              tEnd = .data$survivalTime,
+              m = !is.na(.data$daysToMediator) & .data$daysToMediator < .data$survivalTime,
+              y = .data$outcomeCount > 0,
+              tM = .data$daysToMediator,
+              pA = .data$propensityScore,
+              hMstar = .data$mrs,
+              hrIndirect = NA,
+              hrMain = NA,
+              personSeqId = .data$rowId)
+  model <- fitModel(data, settings)
+  return(model)
 }
-
-

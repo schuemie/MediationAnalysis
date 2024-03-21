@@ -4,7 +4,12 @@
 \alias{plotMrs}
 \title{Plot the mediator risk score}
 \usage{
-plotMrs(mrs, targetLabel = "Target", comparatorLabel = "Comparator")
+plotMrs(
+  mrs,
+  targetLabel = "Target",
+  comparatorLabel = "Comparator",
+  showFraction = TRUE
+)
 }
 \arguments{
 \item{mrs}{A tibble containing the MRS as created by \code{createMrs()}.}

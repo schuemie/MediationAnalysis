@@ -7,6 +7,11 @@
 createMediatorRiskScore(
   cohortMethodData,
   mediatorId,
+  removeDuplicateSubjects = "keep all",
+  riskWindowStart = 0,
+  startAnchor = "cohort start",
+  riskWindowEnd = 0,
+  endAnchor = "cohort end",
   prior = createPrior("laplace", exclude = c(0), useCrossValidation = TRUE),
   control = createControl(noiseLevel = "silent", cvType = "auto", seed = 1,
     resetCoefficients = TRUE, tolerance = 2e-07, cvRepetitions = 1, fold = 10,
