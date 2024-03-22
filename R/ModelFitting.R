@@ -111,7 +111,7 @@ fitModel <- function(data, settings) {
   }
   
   if (settings$mrsAdjustment == "model") {
-    f <- update(f, ~ . + ns(mrs, 5)) 
+    f <- update(f, ~ . + ns(log(mrs), 5)) 
   } else if (settings$mrsAdjustment == "covariates") {
     xNames <- colnames(data)[grepl("^x[0-9]+$", colnames(data))]
     newF <- as.formula(paste("~ . + ", paste(xNames, collapse = " + ")))
@@ -189,8 +189,9 @@ fitModel <- function(data, settings) {
     filter(.data$tEnd - .data$tStart > 0.0001)
   
   # With mediator:
-  fit1 <- tryCatch(coxph(update(f, ~ . + m), data = data), error = function(e) "Error")
-  if (is.character(fit1)) {
+  control <- coxph.control(iter.max = 1000)
+  fit1 <- tryCatch(coxph(update(f, ~ . + m), data = data, control = control), error = function(e) "Error")
+  if (is.character(fit1) || fit1$iter == 1000) {
     directCi <- c(NA, NA)
     directLogHr <- NA 
     mediatorCi <- c(NA, NA)
@@ -203,8 +204,8 @@ fitModel <- function(data, settings) {
   }
   
   # Without mediator:
-  fit2 <- tryCatch(coxph(f, data = data), error = function(e) "Error")
-  if (is.character(fit2)) {
+  fit2 <- tryCatch(coxph(f, data = data, control = control), error = function(e) "Error")
+  if (is.character(fit2) || fit2$iter == 1000) {
     mainCi <- c(NA, NA)
     mainLogHr <- NA 
   } else {
