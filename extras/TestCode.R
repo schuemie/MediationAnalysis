@@ -33,3 +33,19 @@ system.time({
 })
 # user  system elapsed 
 # 0.001   0.000   0.001 
+
+# Debug coverage issue for indirect effect ---------------------------------------------------------
+library(MediationAnalysis)
+folder <- tempfile()
+
+dir.create(folder)
+simulationSettings <- createSimulationSettings()
+modelSettings <- createModelsettings()
+runSetOfSimulations(folder = folder, 
+                    simulationSettingsList = list(simulationSettings), 
+                    modelSettingsList = list(modelSettings),
+                    nSimulations = 1000,
+                    maxCores = 10) 
+results <- read.csv(file.path(folder, "Results.csv"))
+results
+unlink(folder, recursive = TRUE)
