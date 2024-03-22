@@ -115,12 +115,12 @@ evaluateSingleResult <- function(simulationSettings, modelSettings, estimates) {
     nonEstimableFraction = mean(nonEstimableIdx)
   )
   simSettingsForOutput <- simulationSettings
-  class(simSettingsForOutput) <- "list"
   if (is(simSettingsForOutput, "SimulationSettings")) {
     simSettingsForOutput$aX <- paste(simSettingsForOutput$aX, collapse = ", ")
     simSettingsForOutput$mX <- paste(simSettingsForOutput$mX, collapse = ", ")
     simSettingsForOutput$yX <- paste(simSettingsForOutput$yX, collapse = ", ")
   }
+  class(simSettingsForOutput) <- "list"
   results <- results %>% 
     bind_cols(as_tibble(modelSettings)) %>%
     bind_cols(as_tibble(simSettingsForOutput))

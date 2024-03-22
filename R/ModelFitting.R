@@ -236,18 +236,27 @@ fitModel <- function(data, settings) {
   return(result)
 }
 
-singleBootstrapSample <- function(dummy, x, y, stratumId, rowNames) {
-  idx <- sample.int(nrow(x), nrow(x), replace = TRUE)
+singleBootstrapSample <- function(dummy, x, y, uniqueStratumIds, stratumIdToIdx) {
+  if (is.null(uniqueStratumIds)) {
+    idx <- sample.int(nrow(x), nrow(x), replace = TRUE)
+    stratumId <- NULL
+  } else {
+    # Sample at strata-level for improved coverage:
+    sampledStratumIds <- sample(uniqueStratumIds, size = length(uniqueStratumIds), replace = TRUE)
+    idx <- inner_join(tibble(stratumId = sampledStratumIds), 
+                      stratumIdToIdx, 
+                      by = join_by("stratumId"), 
+                      relationship = "many-to-many") %>%
+      pull("idx")
+    stratumId <- stratumIdToIdx$stratumId[idx]
+  }
   x <- x[idx, ]
   y <- y[idx, ]
-  if (!is.null(stratumId)) {
-    stratumId <- stratumId[idx]
-  }
   control <- coxph.control()
   tryCatch({
     suppressWarnings({
-      fit1 <- agreg.fit(x, y, stratumId, control = control, method = "efron", rownames = rowNames,  init = rep(0,ncol(x)))
-      fit2 <- agreg.fit(x[, -ncol(x), drop = FALSE], y, stratumId, control = control, method = "efron", rownames = rowNames,  init = rep(0, ncol(x)-1))
+      fit1 <- agreg.fit(x, y, stratumId, control = control, method = "efron", rownames = seq_along(idx), init = rep(0,ncol(x)))
+      fit2 <- agreg.fit(x[, -ncol(x), drop = FALSE], y, stratumId, control = control, method = "efron", rownames = seq_along(idx),  init = rep(0, ncol(x)-1))
     })
     return(fit2$coefficients[1] - fit1$coefficients[1])
   },
@@ -262,15 +271,17 @@ computeIndirectEffectCi <- function(data, f) {
   if ("stratumId" %in% colnames(data)) {
     strataIdx <- grep("strata", attr(terms, "term.labels"))
     x <- cbind(model.matrix(terms[-strataIdx], data = data)[, -1], data$m)
-    stratumId <- data$stratumId
+    uniqueStratumIds <- unique(data$stratumId)
+    stratumIdToIdx <- data %>%
+      select("stratumId") %>%
+      mutate(idx = row_number())
   } else {
     x <- cbind(model.matrix(terms, data = data)[, -1], data$m)
-    stratumId <- NULL
+    uniqueStratumIds <- NULL
+    stratumIdToIdx <- NULL
   }
   y <- Surv(data$tStart, data$tEnd, data$y)
-  # Creating a character vector is slow, so do only once:
-  rowNames <- as.character(seq_len(nrow(x)))
-  bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, stratumId = stratumId, rowNames = rowNames)  
+  bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, uniqueStratumIds = uniqueStratumIds, stratumIdToIdx = stratumIdToIdx)  
   ci <- quantile(bootstrap, c(0.025, 0.975), na.rm = TRUE)
   # Alternative: impose normal distribution for efficiency:
   # ci <- qnorm(c(0.025, 0.975), mean(bootstrap), sd(bootstrap))
