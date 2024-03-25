@@ -57,22 +57,33 @@ createModelsettings <- function(ps = "oracle",
 #' A tibble with one row and the following columns:
 #' 
 #' - mainLogRr: The log of the hazard ratio for the main effect (effect of 
-#'   treatment on outcome) in a model including the mediator.
-#' - mainLogLb: The log of the lower bound of the confidence interval for the 
-#'   main effect in a model including the mediator.
-#' - mainLogUb: The log of the upper bound of the confidence interval for the 
-#'    main effect in a model including the mediator.
-#' - mediatorLogRr: The log of the hazard ratio for the mediator effect
-#' - mediatorLogLb: The log of the lower bound of the confidence interval for the 
+#'   treatment on outcome) in model that does *not* account for the mediator.
+#' - mainLogLb: The log of the lower bound of the 95 percent confidence interval for the 
+#'   main effect.
+#' - mainLogUb: The log of the upper bound of the 95 percent confidence interval for the 
+#'    main effect.
+#' - mediatorLogRr: The log of the hazard ratio for the mediator effect (effect of mediator on
+#'   outcome).
+#' - mediatorLogLb: The log of the lower bound of the 95 percent confidence interval for the 
 #'   mediator effect.
-#' - mediatorLogUb: The log of the upper bound of the confidence interval for the 
+#' - mediatorLogUb: The log of the upper bound of the 95 percent confidence interval for the 
 #'    mediator effect.
-#' - mainLogRrNoM: The log of the hazard ratio for the main effect (effect of 
-#'   treatment on outcome) in a model *not* including the mediator.
-#' - mainLogLbNoM: The log of the lower bound of the confidence interval for the 
-#'   main effect in a model *not* including the mediator.
-#' - mainLogUbNoM: The log of the upper bound of the confidence interval for the 
-#'    main effect in a model *not* including the mediator.
+#' - directLogRr: The log of the hazard ratio for the direct effect (effect of 
+#'   treatment on outcome) in a model including the mediator.
+#' - directLogLb: The log of the lower bound of the 95 percent confidence interval for the 
+#'   direct effect.
+#' - directLogUn: The log of the upper bound of the 95 percent confidence interval for the 
+#'    direct effect.
+#' - indirectLogRr: The log of the hazard ratio for the indirect effect (effect of 
+#'   treatment on outcome through the mediator) computed using the difference method.
+#' - indirectLogLb: The log of the lower bound of the 95 percent confidence interval for the 
+#'   indirect effect.
+#' - indirectLogUn: The log of the upper bound of the 95 percent confidence interval for the 
+#'   indirect effect.
+#' - trueMainHr: For simulations: the true main hazard ratio (copied directly from the `hrMain` 
+#'   variable in the input).
+#' - trueIndirectHr For simulations: the true indirect hazard ratio (copied directly from the 
+#'   `hrIndirect` variable in the input).#'   
 #'
 #' @export
 fitModel <- function(data, settings) {
@@ -213,27 +224,26 @@ fitModel <- function(data, settings) {
     mainLogHr <- coef(fit2)["aTRUE"] 
   }
   
-  # log difference with vs without mediator:
-  logDiff <- mainLogHr - directLogHr
-  if (is.na(logDiff)) {
-    logDiffCi <- c(NA, NA)
+  # Compute indirect effect using the difference method:
+  indirectLogHr <- mainLogHr - directLogHr
+  if (is.na(indirectLogHr)) {
+    indirectCi <- c(NA, NA)
   } else {
-    logDiffCi <- computeIndirectEffectCi(data, f)
+    indirectCi <- computeIndirectEffectCi(data, f)
   }
-  result <- tibble(directLogHr = directLogHr,
+  result <- tibble(mainLogHr = mainLogHr,
+                   mainLogLb = mainCi[1],
+                   mainLogUb = mainCi[2],directLogHr = directLogHr,
                    directLogLb = directCi[1],
                    directLogUb = directCi[2],
                    mediatorLogHr = mediatorLogHr,
                    mediatorLogLb = mediatorCi[1],
                    mediatorLogUb = mediatorCi[2],
-                   mainLogHr = mainLogHr,
-                   mainLogLb = mainCi[1],
-                   mainLogUb = mainCi[2],
-                   mainLogDiff = logDiff,
-                   mainLogLbDiff = logDiffCi[1],
-                   mainLogUbDiff = logDiffCi[2],
-                   hrMain = data$hrMain[1],
-                   hrIndirect = data$hrIndirect[1])
+                   indirectLogHr = indirectLogHr,
+                   indirectLogLb = indirectCi[1],
+                   indirectLogUb = indirectCi[2],
+                   trueMainHr = data$hrMain[1],
+                   trueIndirectHr = data$hrIndirect[1])
   return(result)
 }
 
@@ -267,7 +277,7 @@ singleBootstrapSample <- function(dummy, x, y, uniqueStratumIds, stratumIdToIdx)
 }
 
 computeIndirectEffectCi <- function(data, f) {
-  # Optimized for speed: call agreg.fit directly: 
+  # Optimized for speed: call agreg.fit directly, which is order of magnitude faster than calling coxph:
   terms <- terms(f)
   if ("stratumId" %in% colnames(data)) {
     strataIdx <- grep("strata", attr(terms, "term.labels"))
@@ -284,7 +294,5 @@ computeIndirectEffectCi <- function(data, f) {
   y <- Surv(data$tStart, data$tEnd, data$y)
   bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, uniqueStratumIds = uniqueStratumIds, stratumIdToIdx = stratumIdToIdx)  
   ci <- quantile(bootstrap, c(0.025, 0.975), na.rm = TRUE)
-  # Alternative: impose normal distribution for efficiency:
-  # ci <- qnorm(c(0.025, 0.975), mean(bootstrap), sd(bootstrap))
   return(ci)
 }

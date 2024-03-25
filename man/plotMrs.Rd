@@ -17,6 +17,9 @@ plotMrs(
 \item{targetLabel}{A label to us for the target cohort.}
 
 \item{comparatorLabel}{A label to us for the comparator cohort.}
+
+\item{showFraction}{Add a label to the plot showing what fraction of the population has the
+mediator during the time-at-risk?}
 }
 \value{
 A ggplot object. Use the \code{ggplot2::ggsave()} function to save to file in a different format.

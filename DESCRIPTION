@@ -10,7 +10,8 @@ Maintainer: Martijn Schuemie <schuemie@ohdsi.org>
 Description: Code for evaluating various approaches to mediation analysis in observational data.
 Depends:
 	survival,
-	splines
+	splines,
+	Cyclops
 Imports:
 	dplyr,
 	ParallelLogger,
@@ -18,7 +19,6 @@ Imports:
 	MatchIt,
 	digest,
 	rlang,
-	Cyclops,
 	readr,
 	methods,
 	FeatureExtraction,

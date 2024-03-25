@@ -160,7 +160,7 @@ for (outcomeId in negativeControlConceptIds) {
 estimates <- bind_rows(estimates)
 estimates <- estimates %>%
   mutate(mainSeLogRr = (mainLogUb - mainLogLb) / (2*qnorm(0.975)),
-         mainLogDiffSe = (mainLogUbDiff - mainLogLbDiff ) / (2*qnorm(0.975)))
+         indirectSeLogRr = (indirectLogLb - indirectLogUb ) / (2*qnorm(0.975)))
 
 EmpiricalCalibration::plotCalibrationEffect(
   logRrNegatives = estimates$mainLogHr,
@@ -173,8 +173,8 @@ EmpiricalCalibration::plotCalibrationEffect(
 
 
 EmpiricalCalibration::plotCalibrationEffect(
-  logRrNegatives = estimates$mainLogDiff,
-  seLogRrNegatives = estimates$mainLogDiffSe,
+  logRrNegatives = estimates$indirectSeLogHr,
+  seLogRrNegatives = estimates$indirectSeLogRr,
   title = "Indirect effect",
   xLabel = "Hazard ratio",
   showCis = TRUE,

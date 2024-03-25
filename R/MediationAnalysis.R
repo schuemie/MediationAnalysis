@@ -20,7 +20,10 @@
 #' @import dplyr
 #' @import survival
 #' @import splines
+#' @import Cyclops
 #' @importFrom rlang .data
 #' @importFrom methods is
-#' @importFrom stats as.formula coef confint formula predict rexp runif update model.matrix quantile rnorm
+#' @importFrom stats as.formula coef confint formula predict rexp runif update model.matrix quantile rnorm density
+#' @importFrom grDevices rgb
+#' @importFrom graphics text
 NULL

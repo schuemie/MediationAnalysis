@@ -23,6 +23,19 @@ createMediatorRiskScore(
 
 \item{mediatorId}{The outcome ID corresponding to the mediator.}
 
+\item{removeDuplicateSubjects}{Remove subjects that are in both the target and comparator
+cohort? See details for allowed values.}
+
+\item{riskWindowStart}{The start of the risk window (in days) relative to the \code{startAnchor}.}
+
+\item{startAnchor}{The anchor point for the start of the risk window. Can be \code{"cohort start"}
+or \code{"cohort end"}.}
+
+\item{riskWindowEnd}{The end of the risk window (in days) relative to the \code{endAnchor}.}
+
+\item{endAnchor}{The anchor point for the end of the risk window. Can be \code{"cohort start"}
+or \code{"cohort end"}.}
+
 \item{prior}{The prior used to fit the model. See \code{Cyclops::createPrior()} for details.}
 
 \item{control}{The control object used to control the cross-validation used to determine the hyperparameters
@@ -33,4 +46,12 @@ A tibble with the mediator risk score (MRS).
 }
 \description{
 Create the mediator risk score
+}
+\details{
+The \code{removeduplicateSubjects} argument can have one of the following values:
+\itemize{
+\item \code{"keep all"}: Do not remove subjects that appear in both target and comparator cohort
+\item \code{"keep first"}: When a subjects appear in both target and comparator cohort, only keep whichever cohort is first in time. If both cohorts start simultaneous, the person is removed from the analysis.
+\item \code{"remove all"}: Remove subjects that appear in both target and comparator cohort completely from the analysis."
+}
 }

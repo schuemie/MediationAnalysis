@@ -17,22 +17,33 @@ function.}
 A tibble with one row and the following columns:
 \itemize{
 \item mainLogRr: The log of the hazard ratio for the main effect (effect of
+treatment on outcome) in model that does \emph{not} account for the mediator.
+\item mainLogLb: The log of the lower bound of the 95 percent confidence interval for the
+main effect.
+\item mainLogUb: The log of the upper bound of the 95 percent confidence interval for the
+main effect.
+\item mediatorLogRr: The log of the hazard ratio for the mediator effect (effect of mediator on
+outcome).
+\item mediatorLogLb: The log of the lower bound of the 95 percent confidence interval for the
+mediator effect.
+\item mediatorLogUb: The log of the upper bound of the 95 percent confidence interval for the
+mediator effect.
+\item directLogRr: The log of the hazard ratio for the direct effect (effect of
 treatment on outcome) in a model including the mediator.
-\item mainLogLb: The log of the lower bound of the confidence interval for the
-main effect in a model including the mediator.
-\item mainLogUb: The log of the upper bound of the confidence interval for the
-main effect in a model including the mediator.
-\item mediatorLogRr: The log of the hazard ratio for the mediator effect
-\item mediatorLogLb: The log of the lower bound of the confidence interval for the
-mediator effect.
-\item mediatorLogUb: The log of the upper bound of the confidence interval for the
-mediator effect.
-\item mainLogRrNoM: The log of the hazard ratio for the main effect (effect of
-treatment on outcome) in a model \emph{not} including the mediator.
-\item mainLogLbNoM: The log of the lower bound of the confidence interval for the
-main effect in a model \emph{not} including the mediator.
-\item mainLogUbNoM: The log of the upper bound of the confidence interval for the
-main effect in a model \emph{not} including the mediator.
+\item directLogLb: The log of the lower bound of the 95 percent confidence interval for the
+direct effect.
+\item directLogUn: The log of the upper bound of the 95 percent confidence interval for the
+direct effect.
+\item indirectLogRr: The log of the hazard ratio for the indirect effect (effect of
+treatment on outcome through the mediator) computed using the difference method.
+\item indirectLogLb: The log of the lower bound of the 95 percent confidence interval for the
+indirect effect.
+\item indirectLogUn: The log of the upper bound of the 95 percent confidence interval for the
+indirect effect.
+\item trueMainHr: For simulations: the true main hazard ratio (copied directly from the \code{hrMain}
+variable in the input).
+\item trueIndirectHr For simulations: the true indirect hazard ratio (copied directly from the
+\code{hrIndirect} variable in the input).#'
 }
 }
 \description{

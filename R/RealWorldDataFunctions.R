@@ -18,9 +18,25 @@
 #'
 #' @param cohortMethodData An object of type `CohortMethodData` as generated using `CohortMethod::getDbCohortMethodData()`.
 #' @param mediatorId       The outcome ID corresponding to the mediator.
+#' @param removeDuplicateSubjects          Remove subjects that are in both the target and comparator
+#'                                         cohort? See details for allowed values.
+#' @param riskWindowStart                  The start of the risk window (in days) relative to the `startAnchor`.
+#' @param startAnchor                      The anchor point for the start of the risk window. Can be `"cohort start"`
+#'                                         or `"cohort end"`.
+#' @param riskWindowEnd                    The end of the risk window (in days) relative to the `endAnchor`.
+#' @param endAnchor                        The anchor point for the end of the risk window. Can be `"cohort start"`
+#'                                         or `"cohort end"`.
 #' @param prior            The prior used to fit the model. See `Cyclops::createPrior()` for details.
 #' @param control	         The control object used to control the cross-validation used to determine the hyperparameters 
 #'                         of the prior (if applicable). See `Cyclops::createControl()` for details.
+#'                         
+#' @details
+#' The `removeduplicateSubjects` argument can have one of the following values:
+#'
+#' - `"keep all"`: Do not remove subjects that appear in both target and comparator cohort
+#' - `"keep first"`: When a subjects appear in both target and comparator cohort, only keep whichever cohort is first in time. If both cohorts start simultaneous, the person is removed from the analysis.
+#' - `"remove all"`: Remove subjects that appear in both target and comparator cohort completely from the analysis."
+#' 
 #' @return
 #' A tibble with the mediator risk score (MRS).
 #' 
@@ -53,7 +69,7 @@ createMediatorRiskScore <- function(cohortMethodData,
     endAnchor = endAnchor
   )
   covariateData$outcomes <- studyPop %>%
-    mutate(y = outcomeCount > 0) %>%
+    mutate(y = .data$outcomeCount > 0) %>%
     select("rowId", time = "survivalTime", "y")
   cyclopsData <- Cyclops::convertToCyclopsData(
     outcomes = covariateData$outcomes,
@@ -66,12 +82,6 @@ createMediatorRiskScore <- function(cohortMethodData,
   mrs <- predict(fit, 
                  newOutcomes = covariateData$outcomes,
                  newCovariates = covariateData$covariates)
-  
-  # daysToMediator <- cohortMethodData$outcomes %>%
-  #   filter(.data$outcomeId == mediatorId, .data$daysToEvent >= 0) %>%
-  #   group_by(.data$rowId) %>%
-  #   summarise(daysToMediator = min(.data$daysToEvent, na.rm = TRUE)) %>%
-  #   collect()
   mrs <- covariateData$outcomes %>%
     select("rowId", "treatment") %>%
     collect() %>%
@@ -88,6 +98,8 @@ createMediatorRiskScore <- function(cohortMethodData,
 #' @param mrs             A tibble containing the MRS as created by `createMrs()`.
 #' @param targetLabel     A label to us for the target cohort.
 #' @param comparatorLabel A label to us for the comparator cohort.
+#' @param showFraction    Add a label to the plot showing what fraction of the population has the 
+#'                        mediator during the time-at-risk?
 #'
 #' @return
 #' A ggplot object. Use the `ggplot2::ggsave()` function to save to file in a different format.
@@ -98,10 +110,10 @@ plotMrs <- function(mrs,
                     comparatorLabel = "Comparator",
                     showFraction = TRUE) {
   mrs <- mrs %>%
-    mutate(label = if_else(treatment == 1, targetLabel, comparatorLabel))
+    mutate(label = if_else(.data$treatment == 1, targetLabel, comparatorLabel))
   mrs$label <- factor(mrs$label, levels = c(targetLabel, comparatorLabel))
-  plot <- ggplot2::ggplot(mrs, ggplot2::aes(x = mrs)) +
-    ggplot2::geom_density(ggplot2::aes(color = label, group = label, fill = label)) +
+  plot <- ggplot2::ggplot(mrs, ggplot2::aes(x = .data$mrs)) +
+    ggplot2::geom_density(ggplot2::aes(color = .data$label, group = .data$label, fill = .data$label)) +
     ggplot2::scale_fill_manual(values = c(
       rgb(0.8, 0, 0, alpha = 0.5),
       rgb(0, 0, 0.8, alpha = 0.5)
@@ -116,7 +128,14 @@ plotMrs <- function(mrs,
     labelData <- data.frame(text = sprintf("%0.2f%% have the mediator", 100*mean(!is.na(mrs$daysToMediator))))
     y <- max(density(log10(mrs$mrs[mrs$treatment == 1]))$y, density(log10(mrs$mrs[mrs$treatment == 0]))$y)
     # Weird bug in ggplot2: log transform is not applied to geom_label x coordinates:
-    plot <- plot + ggplot2::geom_label(x = log10(max(mrs$mrs)), y = y, hjust = "right", vjust = "top", alpha = 0.8, ggplot2::aes(label = text), data = labelData, size = 3.5)
+    plot <- plot + ggplot2::geom_label(x = log10(max(mrs$mrs)), 
+                                       y = y,
+                                       hjust = "right", 
+                                       vjust = "top", 
+                                       alpha = 0.8, 
+                                       ggplot2::aes(label = .data$text), 
+                                       data = labelData, 
+                                       size = 3.5)
   }
   # plot
   return(plot)

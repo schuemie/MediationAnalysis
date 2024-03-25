@@ -90,7 +90,7 @@ runOneSimulation <- function(seed, simulationSettings, modelSettingsList) {
 }
 
 evaluateSingleResult <- function(simulationSettings, modelSettings, estimates) {
-  nonEstimableIdx <- is.na(estimates$mainLogDiff)
+  nonEstimableIdx <- is.na(estimates$indirectLogHr)
   estimates <- estimates[!nonEstimableIdx, ]
   hasIndirectEffect <- simulationSettings$mA != 0 & simulationSettings$yM != 0
   results <- tibble(
@@ -98,20 +98,20 @@ evaluateSingleResult <- function(simulationSettings, modelSettings, estimates) {
                                   simulationSettings$yA <= estimates$directLogUb),
     coverageMediatorEffect = mean(simulationSettings$yM >= estimates$mediatorLogLb & 
                                     simulationSettings$yM <= estimates$mediatorLogUb),
-    covarageMainEffect = mean(log(estimates$hrMain) >= estimates$mainLogLb &
-                                log(estimates$hrMain) <= estimates$mainLogUb),
-    covarageIndirectEffect = mean(log(estimates$hrIndirect) >= estimates$mainLogLbDiff &
-                                    log(estimates$hrIndirect) <= estimates$mainLogUbDiff),
+    covarageMainEffect = mean(log(estimates$trueMainHr) >= estimates$mainLogLb &
+                                log(estimates$trueMainHr) <= estimates$mainLogUb),
+    covarageIndirectEffect = mean(log(estimates$trueIndirectHr) >= estimates$indirectLogLb &
+                                    log(estimates$trueIndirectHr) <= estimates$indirectLogUb),
     biasDirectEffect = mean(simulationSettings$yA - estimates$directLogHr),
     biasMediatorEffect = mean(simulationSettings$yA - estimates$mainLogHr),
-    biasMainEffect = mean(log(estimates$hrMain) - estimates$mainLogHr),
-    biasIndirectEffect = mean(log(estimates$hrIndirect) - estimates$mainLogDiff),
+    biasMainEffect = mean(log(estimates$trueMainHr) - estimates$mainLogHr),
+    biasIndirectEffect = mean(log(estimates$trueIndirectHr) - estimates$indirectLogHr),
     mseDirectEffect = mean((simulationSettings$yA - estimates$directLogHr)^2),
     msesMediatorEffect = mean((simulationSettings$yA - estimates$mainLogHr)^2),
-    mseMainEffect = mean((log(estimates$hrMain) - estimates$mainLogHr)^2),
-    mseIndirectEffect = mean((log(estimates$hrIndirect) - estimates$mainLogDiff)^2),
-    indirectType1Error = if_else(hasIndirectEffect, NA, mean(estimates$mainLogLbDiff > 0 | estimates$mainLogUbDiff < 0)),
-    indirectType2Error = if_else(hasIndirectEffect, mean(estimates$mainLogLbDiff <= 0 & estimates$mainLogUbDiff >= 0), NA),
+    mseMainEffect = mean((log(estimates$trueMainHr) - estimates$mainLogHr)^2),
+    mseIndirectEffect = mean((log(estimates$trueIndirectHr) - estimates$indirectLogHr)^2),
+    indirectType1Error = if_else(hasIndirectEffect, NA, mean(estimates$indirectLogLb > 0 | estimates$indirectLogUb < 0)),
+    indirectType2Error = if_else(hasIndirectEffect, mean(estimates$indirectLogLb <= 0 & estimates$indirectLogUb >= 0), NA),
     nonEstimableFraction = mean(nonEstimableIdx)
   )
   simSettingsForOutput <- simulationSettings
