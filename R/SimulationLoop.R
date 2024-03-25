@@ -98,9 +98,9 @@ evaluateSingleResult <- function(simulationSettings, modelSettings, estimates) {
                                   simulationSettings$yA <= estimates$directLogUb),
     coverageMediatorEffect = mean(simulationSettings$yM >= estimates$mediatorLogLb & 
                                     simulationSettings$yM <= estimates$mediatorLogUb),
-    covarageMainEffect = mean(log(estimates$trueMainHr) >= estimates$mainLogLb &
+    coverageMainEffect = mean(log(estimates$trueMainHr) >= estimates$mainLogLb &
                                 log(estimates$trueMainHr) <= estimates$mainLogUb),
-    covarageIndirectEffect = mean(log(estimates$trueIndirectHr) >= estimates$indirectLogLb &
+    coverageIndirectEffect = mean(log(estimates$trueIndirectHr) >= estimates$indirectLogLb &
                                     log(estimates$trueIndirectHr) <= estimates$indirectLogUb),
     biasDirectEffect = mean(simulationSettings$yA - estimates$directLogHr),
     biasMediatorEffect = mean(simulationSettings$yA - estimates$mainLogHr),
@@ -126,3 +126,46 @@ evaluateSingleResult <- function(simulationSettings, modelSettings, estimates) {
     bind_cols(as_tibble(simSettingsForOutput))
   return(results)
 }
+
+prettyName <- function(string) {
+  string <- gsub("([A-Z])", " \\1", string)
+  string <- tolower(string)
+  string <- gsub("([a-z])([0-9])", "\\1 \\2", string)
+  string <- paste0(toupper(substr(string, 1, 1)), substr(string, 2, 999))
+  string <- gsub("Mse", "MSE", string)
+  return(string)
+}
+
+prepareForShinyApp <- function(folder) {
+  results <- readr::read_csv(file.path(folder, "Results.csv"), show_col_types = FALSE)
+  results <- tidyr::pivot_longer(results, 
+                                 c("coverageDirectEffect",
+                                   "coverageMediatorEffect", 
+                                   "coverageMainEffect", 
+                                   "coverageIndirectEffect", 
+                                   "biasDirectEffect",
+                                   "biasMediatorEffect",
+                                   "biasMainEffect",
+                                   "biasIndirectEffect",
+                                   "mseDirectEffect" ,
+                                   "msesMediatorEffect",
+                                   "mseMainEffect",
+                                   "mseIndirectEffect",
+                                   "indirectType1Error",
+                                   "indirectType2Error",
+                                   "nonEstimableFraction"),
+                                 names_to = "metric") %>%
+    transmute(type = "MRS",
+              "Direct effect" = exp(.data$yA),
+              "Mediator effect" = exp(.data$yM),
+              "Effect on mediator" = exp(.data$mA),
+              "Confounding (exposure-outcome)" = if_else(.data$confoundingAySd == 0.5, "Low", "High"),
+              "Confounding (mediator-outcome)" = if_else(.data$confoundingmYSd == 0.5, "Low", "High"),
+              "Baseline exposure prevalence" = exp(.data$aIntercept),
+              "Baseline mediator prevalence" = exp(.data$mIntercept),
+              "Baseline outcome prevalence" = exp(.data$yIntercept),
+              metric = prettyName(.data$metric),
+              value = .data$value)
+  saveRDS(results, "inst/shinyApps/MediationResultsExplorer/data/simulation.rds")
+}
+
