@@ -101,7 +101,10 @@ ps <- createPs(cmData,
                                        threads = 10))
 saveRDS(ps, file.path(folder, "ps.rds"))
 ps <- readRDS(file.path(folder, "ps.rds"))
-plotPs(ps, showEquiposeLabel = TRUE)
+plotPs(ps, 
+       showEquiposeLabel = TRUE,
+       showCountsLabel = TRUE,
+       fileName = file.path(folder, "PsDistribution.png"))
 
 mrs <- createMediatorRiskScore(cohortMethodData = cmData, 
                                mediatorId = 10870,
@@ -121,7 +124,8 @@ mrs <- createMediatorRiskScore(cohortMethodData = cmData,
                                                        threads = 10))
 saveRDS(mrs, file.path(folder, "mrs.rds"))
 mrs <- readRDS(file.path(folder, "mrs.rds"))
-plotMrs(mrs)
+plotMrs(mrs,
+        fileName = file.path(folder, "MrsDistribution.png"))
 
 # Compute estimates for negative controls --------------------------------------
 library(CohortMethod)
@@ -160,7 +164,7 @@ for (outcomeId in negativeControlConceptIds) {
 estimates <- bind_rows(estimates)
 estimates <- estimates %>%
   mutate(mainSeLogRr = (mainLogUb - mainLogLb) / (2*qnorm(0.975)),
-         indirectSeLogRr = (indirectLogLb - indirectLogUb ) / (2*qnorm(0.975)))
+         indirectSeLogRr = (indirectLogUb - indirectLogLb ) / (2*qnorm(0.975)))
 
 EmpiricalCalibration::plotCalibrationEffect(
   logRrNegatives = estimates$mainLogHr,
@@ -168,15 +172,16 @@ EmpiricalCalibration::plotCalibrationEffect(
   title = "Main effect",
   xLabel = "Hazard ratio",
   showCis = TRUE,
-  showExpectedAbsoluteSystematicError = TRUE
+  showExpectedAbsoluteSystematicError = TRUE,
+  fileName = file.path(folder, "NegativeControlsMainEffect.png")
 )
 
-
 EmpiricalCalibration::plotCalibrationEffect(
-  logRrNegatives = estimates$indirectSeLogHr,
+  logRrNegatives = estimates$indirectLogHr,
   seLogRrNegatives = estimates$indirectSeLogRr,
   title = "Indirect effect",
   xLabel = "Hazard ratio",
   showCis = TRUE,
-  showExpectedAbsoluteSystematicError = TRUE
+  showExpectedAbsoluteSystematicError = TRUE,
+  fileName = file.path(folder, "NegativeControlsIndirectEffect.png")
 )

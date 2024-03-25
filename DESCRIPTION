@@ -22,7 +22,8 @@ Imports:
 	readr,
 	methods,
 	FeatureExtraction,
-	ggplot2
+	ggplot2,
+	scales
 License: Apache License 2.0
 RoxygenNote: 7.3.1
 Roxygen: list(markdown = TRUE)
