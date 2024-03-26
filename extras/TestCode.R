@@ -39,12 +39,22 @@ library(MediationAnalysis)
 folder <- tempfile()
 
 dir.create(folder)
-simulationSettings <- createSimulationSettings()
+simulationSettings <- createAbstractSimulationSettings(
+  confoundingAySd = 1,
+  confoundingmYSd = 0.1,
+  confoundingAymSd = 1,
+  aIntercept = log(0.5),
+  mIntercept = log(0.01),
+  yIntercept = log(0.01),
+  mA = log(2),
+  yA = log(0.5),
+  yM = log(2)
+)
 modelSettings <- createModelsettings()
 runSetOfSimulations(folder = folder, 
                     simulationSettingsList = list(simulationSettings), 
                     modelSettingsList = list(modelSettings),
-                    nSimulations = 1000,
+                    nSimulations = 10,
                     maxCores = 10) 
 results <- read.csv(file.path(folder, "Results.csv"))
 results

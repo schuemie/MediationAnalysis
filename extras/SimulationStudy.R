@@ -8,12 +8,12 @@ ssList <- list()
 for (yA in log(c(0.5))) {
   for (mA in log(c(2.0))) {
     for (yM in log(c(2.0))) {
-      for (confoundingAySd in c(0.5, 2)) {
-        for (confoundingmYSd in c(0.5, 2)) {
+      for (confoundingAySd in c(0.1, 1)) {
+        for (confoundingmYSd in c(0.1, 1)) {
           for (aIntercept in log(c(0.5))) {
             for (mIntercept in log(c(0.01, 0.1))) {
               for (yIntercept in log(c(0.01, 0.1))) {
-                confoundingAymSd <- mean(confoundingAySd, confoundingmYSd)
+                confoundingAymSd <- mean(c(confoundingAySd, confoundingmYSd))
                 ssList[[length(ssList) + 1]] <- createAbstractSimulationSettings(
                   aIntercept = aIntercept,
                   confoundingAySd = confoundingAySd,
