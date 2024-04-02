@@ -40,12 +40,12 @@ folder <- tempfile()
 
 dir.create(folder)
 simulationSettings <- createAbstractSimulationSettings(
-  confoundingAySd = 1,
-  confoundingmYSd = 0.1,
-  confoundingAymSd = 1,
+  confoundingAySd = 0.01,
+  confoundingmYSd = 0.01,
+  confoundingAymSd = 0.01,
   aIntercept = log(0.5),
-  mIntercept = log(0.01),
-  yIntercept = log(0.01),
+  mIntercept = log(0.1),
+  yIntercept = log(0.1),
   mA = log(2),
   yA = log(0.5),
   yM = log(2)
@@ -54,8 +54,20 @@ modelSettings <- createModelsettings()
 runSetOfSimulations(folder = folder, 
                     simulationSettingsList = list(simulationSettings), 
                     modelSettingsList = list(modelSettings),
-                    nSimulations = 10,
+                    nSimulations = 100,
                     maxCores = 10) 
 results <- read.csv(file.path(folder, "Results.csv"))
 results
 unlink(folder, recursive = TRUE)
+
+
+data <- simulateData(simulationSettings)
+sum(data$m)
+sum(data$y)
+sum(data$m & data$y)
+model <- fitModel(data, modelSettings)
+sprintf("CI: %0.2f-%0.2f, true HR: %0.2f", exp(model$indirectLogLb), exp(model$indirectLogUb), model$trueIndirectHr)
+
+indirectLogHr
+fit3<- coxph(Surv(tStart, tEnd, y) ~ a + ns(log(mrs), 5) + strata(stratumId) + m + m*a, data = data)
+fit3

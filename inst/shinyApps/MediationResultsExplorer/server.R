@@ -148,6 +148,7 @@ shinyServer(function(input, output, session) {
         ggplot2::scale_fill_manual(values = c("#69AED5", "#FBC511", "#EB6622", "#11A08A", "#336B91")) +
         ggplot2::scale_color_manual(values = c("#69AED5", "#FBC511", "#EB6622", "#11A08A", "#336B91")) +
         facet_grid(metric~., scales = "free", switch = "both") +
+        ggplot2::expand_limits(y = 0) + 
         theme(legend.position = "top",
               legend.title = element_blank(),
               axis.title = element_blank(),
