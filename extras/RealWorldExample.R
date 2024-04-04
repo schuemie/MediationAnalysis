@@ -11,7 +11,7 @@ cohortTable <- "cohort_mediation_ccae"
 cdmDatabaseSchema <- "cdm_truven_ccae_v2756" 
 
 
-# DFetch cohort definitions from WebAPI ----------------------------------------
+# Fetch cohort definitions from WebAPI ----------------------------------------
 library(dplyr)
 ROhdsiWebApi::authorizeWebApi(baseUrl = Sys.getenv("baseUrl"),
                               authMethod = "windows")
@@ -185,3 +185,27 @@ EmpiricalCalibration::plotCalibrationEffect(
   showExpectedAbsoluteSystematicError = TRUE,
   fileName = file.path(folder, "NegativeControlsIndirectEffect.png")
 )
+
+# Compute rough estimate of bleeding incidence rate ----------------------------
+library(CohortMethod)
+library(dyplr)
+cmData <- loadCohortMethodData(file.path(folder, "cmData.zip"))
+studyPop <- createStudyPopulation(
+  cohortMethodData = cmData,
+  outcomeId = 10870,
+  restrictToCommonPeriod = TRUE,
+  removeSubjectsWithPriorOutcome = TRUE,
+  priorOutcomeLookback = 99999,
+  removeDuplicateSubjects = "keep first",
+  riskWindowStart = 0,
+  startAnchor = "cohort start",
+  riskWindowEnd = 0,
+  endAnchor = "cohort end"
+)
+studyPop %>%
+  summarise(outcomeCount = sum(outcomeCount),
+            timeAtRisk = sum(timeAtRisk)) %>%
+  mutate(ir = outcomeCount / (timeAtRisk / (1000*365.25)))
+# outcomeCount timeAtRisk    ir
+# <dbl>      <dbl> <dbl>
+#   1         1158   49225009  8.59
