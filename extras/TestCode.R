@@ -40,9 +40,9 @@ folder <- tempfile()
 
 dir.create(folder)
 simulationSettings <- createAbstractSimulationSettings(
-  confoundingAySd = 0.1,
-  confoundingmYSd = 0.1,
-  confoundingAymSd = 0.1,
+  confoundingAySd = 1,
+  confoundingmYSd = 1,
+  confoundingAymSd = 1,
   aIntercept = log(0.5),
   mIntercept = log(0.01),
   yIntercept = log(0.1),
