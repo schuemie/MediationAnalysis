@@ -248,8 +248,8 @@ singleBootstrapSample <- function(dummy, x, y, stratumIds) {
   control <- coxph.control()
   tryCatch({
     suppressWarnings({
-      fit1 <- agreg.fit(x, y, stratumIds, control = control, method = "efron", rownames = seq_along(idx), init = rep(0,ncol(x)))
-      fit2 <- agreg.fit(x[, -ncol(x), drop = FALSE], y, stratumIds, control = control, method = "efron", rownames = seq_along(idx),  init = rep(0, ncol(x)-1))
+      fit1 <- agreg.fit(x, y, stratumIds, control = control, method = "exact", rownames = seq_along(idx), init = rep(0,ncol(x)))
+      fit2 <- agreg.fit(x[, -ncol(x), drop = FALSE], y, stratumIds, control = control, method = "exact", rownames = seq_along(idx),  init = rep(0, ncol(x)-1))
     })
     return(fit2$coefficients[1] - fit1$coefficients[1])
   },

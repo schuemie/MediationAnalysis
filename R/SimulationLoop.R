@@ -97,7 +97,7 @@ evaluateSingleResult <- function(simulationSettings, modelSettings, estimates) {
     coverageDirectEffect = mean(simulationSettings$yA >= estimates$directLogLb & 
                                   simulationSettings$yA <= estimates$directLogUb),
     coverageMediatorEffect = mean(simulationSettings$yM >= estimates$mediatorLogLb & 
-                                    simulationSettings$yM <= estimates$mediatorLogUb),
+                                    simulationSettings$yM <= estimates$mediatorLogUb, na.rm = TRUE),
     coverageMainEffect = mean(log(estimates$trueMainHr) >= estimates$mainLogLb &
                                 log(estimates$trueMainHr) <= estimates$mainLogUb),
     coverageIndirectEffect = mean(log(estimates$trueIndirectHr) >= estimates$indirectLogLb &
