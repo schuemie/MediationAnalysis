@@ -44,7 +44,7 @@ simulationSettings <- createAbstractSimulationSettings(
   confoundingmYSd = 0.1,
   confoundingAymSd = 0.1,
   aIntercept = log(0.5),
-  mIntercept = log(0.1),
+  mIntercept = log(0.01),
   yIntercept = log(0.1),
   mA = log(2),
   yA = log(0.5),
@@ -66,6 +66,7 @@ sum(data$m)
 sum(data$y)
 sum(data$m & data$y)
 model <- fitModel(data, modelSettings)
+settings <- modelSettings
 sprintf("CI: %0.2f-%0.2f, true HR: %0.2f", exp(model$indirectLogLb), exp(model$indirectLogUb), model$trueIndirectHr)
 
 indirectLogHr

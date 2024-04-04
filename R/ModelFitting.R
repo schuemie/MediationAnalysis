@@ -145,15 +145,6 @@ fitModel <- function(data, settings) {
       CohortMethod::matchOnPs(maxRatio = 100) %>%
       select(-"propensityScore", -"treatment", -"rowId")
     f <- update(f, ~ . + strata(stratumId))
-    
-    # Remove non-informative strata:
-    nonInformativeStratumIds <- data %>%
-      group_by(.data$stratumId) %>%
-      summarise(total = sum(.data$y)) %>%
-      filter(.data$total == 0) %>%
-      pull(.data$stratumId)
-    data <- data %>%
-      filter(!.data$stratumId %in% nonInformativeStratumIds)
   } else if (settings$psAdjustment == "model") {
     f <- update(f, ~ . + ns(ps, 5))
   } else if (settings$psAdjustment == "covariates") {
@@ -229,7 +220,7 @@ fitModel <- function(data, settings) {
   if (is.na(indirectLogHr)) {
     indirectCi <- c(NA, NA)
   } else {
-    indirectCi <- computeIndirectEffectCi(data, f, indirectLogHr)
+    indirectCi <- computeIndirectEffectCi(data, f)
   }
   result <- tibble(mainLogHr = mainLogHr,
                    mainLogLb = mainCi[1],
@@ -247,27 +238,18 @@ fitModel <- function(data, settings) {
   return(result)
 }
 
-singleBootstrapSample <- function(dummy, x, y, uniqueStratumIds, stratumIdToIdx) {
-  if (is.null(uniqueStratumIds)) {
-    idx <- sample.int(nrow(x), nrow(x), replace = TRUE)
-    stratumId <- NULL
-  } else {
-    # Sample at strata-level for improved coverage:
-    sampledStratumIds <- sample(uniqueStratumIds, size = length(uniqueStratumIds), replace = TRUE)
-    idx <- inner_join(tibble(stratumId = sampledStratumIds), 
-                      stratumIdToIdx, 
-                      by = join_by("stratumId"), 
-                      relationship = "many-to-many") %>%
-      pull("idx")
-    stratumId <- stratumIdToIdx$stratumId[idx]
+singleBootstrapSample <- function(dummy, x, y, stratumIds) {
+  idx <- sample.int(nrow(x), nrow(x), replace = TRUE)
+  if (!is.null(stratumIds)) {
+    stratumIds <- stratumIds[idx]
   }
   x <- x[idx, ]
   y <- y[idx, ]
   control <- coxph.control()
   tryCatch({
     suppressWarnings({
-      fit1 <- agreg.fit(x, y, stratumId, control = control, method = "efron", rownames = seq_along(idx), init = rep(0,ncol(x)))
-      fit2 <- agreg.fit(x[, -ncol(x), drop = FALSE], y, stratumId, control = control, method = "efron", rownames = seq_along(idx),  init = rep(0, ncol(x)-1))
+      fit1 <- agreg.fit(x, y, stratumIds, control = control, method = "efron", rownames = seq_along(idx), init = rep(0,ncol(x)))
+      fit2 <- agreg.fit(x[, -ncol(x), drop = FALSE], y, stratumIds, control = control, method = "efron", rownames = seq_along(idx),  init = rep(0, ncol(x)-1))
     })
     return(fit2$coefficients[1] - fit1$coefficients[1])
   },
@@ -276,25 +258,19 @@ singleBootstrapSample <- function(dummy, x, y, uniqueStratumIds, stratumIdToIdx)
   })
 }
 
-computeIndirectEffectCi <- function(data, f, mle) {
+computeIndirectEffectCi <- function(data, f) {
   # Optimized for speed: call agreg.fit directly, which is order of magnitude faster than calling coxph:
   terms <- terms(f)
   if ("stratumId" %in% colnames(data)) {
     strataIdx <- grep("strata", attr(terms, "term.labels"))
     x <- cbind(model.matrix(terms[-strataIdx], data = data)[, -1], data$m)
-    uniqueStratumIds <- unique(data$stratumId)
-    stratumIdToIdx <- data %>%
-      select("stratumId") %>%
-      mutate(idx = row_number())
+    stratumIds <- data$stratumId
   } else {
     x <- cbind(model.matrix(terms, data = data)[, -1], data$m)
-    uniqueStratumIds <- NULL
-    stratumIdToIdx <- NULL
+    stratumIds <- NULL
   }
   y <- Surv(data$tStart, data$tEnd, data$y)
-  bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, uniqueStratumIds = uniqueStratumIds, stratumIdToIdx = stratumIdToIdx)  
+  bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, stratumIds = stratumIds)  
   ci <- quantile(bootstrap, c(0.025, 0.975), na.rm = TRUE)
-  # Pivot for empirical bootstrap:
-  ci <- c(2*mle - ci[2], 2*mle - ci[1])
   return(ci)
 }
