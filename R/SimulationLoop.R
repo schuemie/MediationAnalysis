@@ -102,6 +102,8 @@ evaluateSingleResult <- function(simulationSettings, modelSettings, estimates) {
                                 log(estimates$trueMainHr) <= estimates$mainLogUb),
     coverageIndirectEffect = mean(log(estimates$trueIndirectHr) >= estimates$indirectLogLb &
                                     log(estimates$trueIndirectHr) <= estimates$indirectLogUb),
+    aboveIndirectEffect = mean(log(estimates$trueIndirectHr) >= estimates$indirectLogUb),
+    belowIndirectEffect = mean(log(estimates$trueIndirectHr) <= estimates$indirectLogLb),
     biasDirectEffect = mean(simulationSettings$yA - estimates$directLogHr),
     biasMediatorEffect = mean(simulationSettings$yA - estimates$mainLogHr),
     biasMainEffect = mean(log(estimates$trueMainHr) - estimates$mainLogHr),
