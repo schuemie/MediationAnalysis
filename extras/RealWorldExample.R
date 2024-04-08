@@ -209,3 +209,15 @@ studyPop %>%
 # outcomeCount timeAtRisk    ir
 # <dbl>      <dbl> <dbl>
 #   1         1158   49225009  8.59
+
+# Run CohortDiagnostics --------------------------------------------------------
+library(CohortDiagnostics)
+cohortDefinitionSet <- readRDS("extras/CohortDefinitionSet.rds")
+executeDiagnostics(cohortDefinitionSet = cohortDefinitionSet,
+                   exportFolder = file.path(folder, "cohortDiagnostics"),
+                   databaseId = "CCAE",
+                   cohortDatabaseSchema = cohortDatabaseSchema,
+                   connectionDetails = connectionDetails,
+                   cdmDatabaseSchema = cdmDatabaseSchema,
+                   cohortTable = cohortTable)
+
