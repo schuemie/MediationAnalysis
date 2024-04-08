@@ -90,4 +90,5 @@ runSetOfSimulations(folder = folder,
                     nSimulations = 1000,
                     maxCores = 25) 
 
+prepareForShinyApp(folder)
 

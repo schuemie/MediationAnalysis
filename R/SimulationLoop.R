@@ -138,6 +138,15 @@ prettyName <- function(string) {
   return(string)
 }
 
+#' Prepare simulation results for Shiny app
+#'
+#' @param folder Folder containing the simulation results.
+#'
+#' @return
+#' Does not return anything. Is executed for the side-effect of loading the results
+#' into the inst/shinyApps/MediationResultsExplorer/data folder.
+#' 
+#' @export
 prepareForShinyApp <- function(folder) {
   results <- readr::read_csv(file.path(folder, "Results.csv"), show_col_types = FALSE)
   results <- tidyr::pivot_longer(results, 
@@ -161,8 +170,7 @@ prepareForShinyApp <- function(folder) {
               "Direct effect" = exp(.data$yA),
               "Mediator effect" = exp(.data$yM),
               "Effect on mediator" = exp(.data$mA),
-              "Confounding (exposure-outcome)" = if_else(.data$confoundingAySd == 0.1, "Low", "High"),
-              "Confounding (mediator-outcome)" = if_else(.data$confoundingmYSd == 0.1, "Low", "High"),
+              "Confounding" = .data$confoundingAySd,
               "Baseline exposure prevalence" = exp(.data$aIntercept),
               "Baseline mediator prevalence" = exp(.data$mIntercept),
               "Baseline outcome prevalence" = exp(.data$yIntercept),

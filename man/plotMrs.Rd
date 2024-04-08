@@ -8,7 +8,9 @@ plotMrs(
   mrs,
   targetLabel = "Target",
   comparatorLabel = "Comparator",
-  showFraction = TRUE
+  showFraction = TRUE,
+  title = NULL,
+  fileName = NULL
 )
 }
 \arguments{
@@ -20,6 +22,11 @@ plotMrs(
 
 \item{showFraction}{Add a label to the plot showing what fraction of the population has the
 mediator during the time-at-risk?}
+
+\item{title}{Optional: the main title for the plot.}
+
+\item{fileName}{Name of the file where the plot should be saved, for example 'plot.png'.
+see the function \code{\link[ggplot2:ggsave]{ggplot2::ggsave()}} for supported file formats.}
 }
 \value{
 A ggplot object. Use the \code{ggplot2::ggsave()} function to save to file in a different format.

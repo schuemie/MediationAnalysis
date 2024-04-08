@@ -51,7 +51,7 @@ shinyServer(function(input, output, session) {
       maxValue <- max(subset[[simParam]])
       temp$parameterValue <- subset[[simParam]]
       temp$jitter <- temp$parameterValue
-      # temp$jitter <- temp$parameterValue + runif(nrow(subset), -0.02 * maxValue, 0.02 * maxValue)
+      temp$jitter <- temp$parameterValue + runif(nrow(subset), -0.02 * maxValue, 0.02 * maxValue)
       temp$simParam <- simParam
       temp[simParams] <- NULL
       return(temp)
