@@ -18,7 +18,7 @@ ROhdsiWebApi::authorizeWebApi(baseUrl = Sys.getenv("baseUrl"),
 cohorts <- tibble(
   cohortId = c(16329,
                16330,
-               10870,
+               16484,
                11024,
                11051),
   cohortName =c("DOACs", 
@@ -220,4 +220,15 @@ executeDiagnostics(cohortDefinitionSet = cohortDefinitionSet,
                    connectionDetails = connectionDetails,
                    cdmDatabaseSchema = cdmDatabaseSchema,
                    cohortTable = cohortTable)
+createMergedResultsFile(dataFolder = file.path(folder, "cohortDiagnostics"))
+launchDiagnosticsExplorer()
 
+# Create cohort explorer app ---------------------------------------------------
+CohortExplorer::createCohortExplorerApp(
+  cohortDatabaseSchema = cohortDatabaseSchema,
+  connectionDetails = connectionDetails,
+  cdmDatabaseSchema = cdmDatabaseSchema,
+  cohortTable = cohortTable,
+  cohortDefinitionId = 16484,
+  databaseId = "CCAE",
+  exportFolder = "d:/temp/ceMajorBleeding")
