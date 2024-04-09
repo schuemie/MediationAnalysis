@@ -17,6 +17,8 @@
 # data = simulateData(createSimulationSettings())
 # settings = createModelsettings()
 
+sampling <- "strata"
+
 #' Create model fitting settings
 #'
 #' @param ps            Source of the propensity score. Can be "oracle" or "fit".
@@ -145,6 +147,16 @@ fitModel <- function(data, settings) {
       CohortMethod::matchOnPs(maxRatio = 100) %>%
       select(-"propensityScore", -"treatment", -"rowId")
     f <- update(f, ~ . + strata(stratumId))
+    
+    if (sampling == "strata") {
+      nonInformativeStratumIds <- data %>%
+        group_by(.data$stratumId) %>%
+        summarise(total = sum(.data$y)) %>%
+        filter(.data$total == 0) %>%
+        pull(.data$stratumId)
+      data <- data %>%
+        filter(!.data$stratumId %in% nonInformativeStratumIds)
+    }
   } else if (settings$psAdjustment == "model") {
     f <- update(f, ~ . + ns(ps, 5))
   } else if (settings$psAdjustment == "covariates") {
@@ -238,18 +250,34 @@ fitModel <- function(data, settings) {
   return(result)
 }
 
-singleBootstrapSample <- function(dummy, x, y, stratumIds) {
-  idx <- sample.int(nrow(x), nrow(x), replace = TRUE)
-  if (!is.null(stratumIds)) {
-    stratumIds <- stratumIds[idx]
+singleBootstrapSample <- function(dummy, x, y, stratumIds, uniqueStratumIds) {
+  if (is.null(stratumIds)) {
+    idx <- sample.int(nrow(x), nrow(x), replace = TRUE)
+  } else {
+    if (sampling == "strata") {
+      # sampledStratumIds <- sample(uniqueStratumIds, size = length(uniqueStratumIds), replace = TRUE)
+      sampledStratumIds <- sample(uniqueStratumIds$stratumId, 
+                                  size = nrow(uniqueStratumIds), 
+                                  prob = uniqueStratumIds$weight,
+                                  replace = TRUE)
+      idx <- inner_join(tibble(stratumId = sampledStratumIds), 
+                        stratumIds, 
+                        by = join_by("stratumId"), 
+                        relationship = "many-to-many") %>%
+        pull("idx")
+      stratumIds <- stratumIds$stratumId[idx]
+    } else {
+      idx <- sample.int(nrow(x), nrow(x), replace = TRUE)
+      stratumIds <- stratumIds[idx]
+    }
   }
   x <- x[idx, ]
   y <- y[idx, ]
   control <- coxph.control()
   tryCatch({
     suppressWarnings({
-      fit1 <- agreg.fit(x, y, stratumIds, control = control, method = "exact", rownames = seq_along(idx), init = rep(0,ncol(x)))
-      fit2 <- agreg.fit(x[, -ncol(x), drop = FALSE], y, stratumIds, control = control, method = "exact", rownames = seq_along(idx),  init = rep(0, ncol(x)-1))
+      fit1 <- agreg.fit(x, y, stratumIds, control = control, method = "efron", rownames = seq_along(idx), init = rep(0,ncol(x)))
+      fit2 <- agreg.fit(x[, -ncol(x), drop = FALSE], y, stratumIds, control = control, method = "efron", rownames = seq_along(idx),  init = rep(0, ncol(x)-1))
     })
     return(fit2$coefficients[1] - fit1$coefficients[1])
   },
@@ -264,13 +292,25 @@ computeIndirectEffectCi <- function(data, f) {
   if ("stratumId" %in% colnames(data)) {
     strataIdx <- grep("strata", attr(terms, "term.labels"))
     x <- cbind(model.matrix(terms[-strataIdx], data = data)[, -1], data$m)
-    stratumIds <- data$stratumId
+    if (sampling == "strata") {
+      # uniqueStratumIds <- unique(data$stratumId)
+      uniqueStratumIds <- data %>%
+        group_by(stratumId) %>%
+        summarize(weight = n() / nrow(data))
+      stratumIds <- data %>%
+        select("stratumId") %>%
+        mutate(idx = row_number())
+    } else {
+      uniqueStratumIds <- NULL
+      stratumIds <- data$stratumId
+    }
   } else {
     x <- cbind(model.matrix(terms, data = data)[, -1], data$m)
+    uniqueStratumIds <- NULL
     stratumIds <- NULL
   }
   y <- Surv(data$tStart, data$tEnd, data$y)
-  bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, stratumIds = stratumIds)  
+  bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, stratumIds = stratumIds, uniqueStratumIds =uniqueStratumIds)  
   ci <- quantile(bootstrap, c(0.025, 0.975), na.rm = TRUE)
   return(ci)
 }
