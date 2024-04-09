@@ -296,7 +296,8 @@ computeIndirectEffectCi <- function(data, f) {
       # uniqueStratumIds <- unique(data$stratumId)
       uniqueStratumIds <- data %>%
         group_by(stratumId) %>%
-        summarize(weight = n() / nrow(data))
+        # summarize(weight = n() / nrow(data))
+        summarize(weight = sum(.data$tEnd - .data$tStart) / sum(data$tEnd - data$tStart))
       stratumIds <- data %>%
         select("stratumId") %>%
         mutate(idx = row_number())
