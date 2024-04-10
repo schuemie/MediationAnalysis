@@ -17,7 +17,8 @@
 # data = simulateData(createSimulationSettings())
 # settings = createModelsettings()
 
-sampling <- "strata"
+sampling <- "strata" # strata or person
+bootstrap <- "percentile" # percentile or pivoted
 
 #' Create model fitting settings
 #'
@@ -232,7 +233,7 @@ fitModel <- function(data, settings) {
   if (is.na(indirectLogHr)) {
     indirectCi <- c(NA, NA)
   } else {
-    indirectCi <- computeIndirectEffectCi(data, f)
+    indirectCi <- computeIndirectEffectCi(data, f, indirectLogHr)
   }
   result <- tibble(mainLogHr = mainLogHr,
                    mainLogLb = mainCi[1],
@@ -286,7 +287,7 @@ singleBootstrapSample <- function(dummy, x, y, stratumIds, uniqueStratumIds) {
   })
 }
 
-computeIndirectEffectCi <- function(data, f) {
+computeIndirectEffectCi <- function(data, f, mle) {
   # Optimized for speed: call agreg.fit directly, which is order of magnitude faster than calling coxph:
   terms <- terms(f)
   if ("stratumId" %in% colnames(data)) {
@@ -313,5 +314,8 @@ computeIndirectEffectCi <- function(data, f) {
   y <- Surv(data$tStart, data$tEnd, data$y)
   bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, stratumIds = stratumIds, uniqueStratumIds =uniqueStratumIds)  
   ci <- quantile(bootstrap, c(0.025, 0.975), na.rm = TRUE)
+  if (bootstrap == "pivoted") {
+    ci <- c(2*mle - ci[2], 2*mle - ci[1])
+  }
   return(ci)
 }
