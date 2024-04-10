@@ -231,6 +231,8 @@ fitModel <- function(data, settings) {
   indirectLogHr <- mainLogHr - directLogHr
   if (is.na(indirectLogHr)) {
     indirectCi <- c(NA, NA)
+  } else if (indirectLogHr == 0) {
+    indirectCi <- c(0, 0)
   } else {
     indirectCi <- computeIndirectEffectCi(data, f)
   }
