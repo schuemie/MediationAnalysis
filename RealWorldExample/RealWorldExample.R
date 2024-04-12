@@ -32,14 +32,14 @@ cohortDefinitionSet <- ROhdsiWebApi::exportCohortDefinitionSet(baseUrl = Sys.get
 cohortDefinitionSet <- cohortDefinitionSet %>%
   select(-"cohortName") %>%
   inner_join(cohorts, by = join_by("cohortId"))
-saveRDS(cohortDefinitionSet, "extras/CohortDefinitionSet.rds")
+saveRDS(cohortDefinitionSet, "RealWorldExample/CohortDefinitionSet.rds")
 
 # Create cohorts ---------------------------------------------------------------
 library(CohortGenerator)
-cohortDefinitionSet <- readRDS("extras/CohortDefinitionSet.rds")
-negativeControlConceptIds <- c(24134, 73302, 74726, 78162, 79903, 81902, 134441, 139099, 140641, 141663, 141825, 141932, 192279, 193326, 196456, 197032, 197684, 199876, 201606, 256449, 257007, 257012, 260139, 261880, 313459, 313791, 372328, 373478, 374919, 378425, 433736, 435613, 435657, 436073, 437643, 441788, 442077, 443344, 443730, 4002650, 4007453, 4050747, 4077081, 4112853, 4150614, 4153359, 4174977, 4208390, 4242416, 4324765)
+cohortDefinitionSet <- readRDS("RealWorldExample/CohortDefinitionSet.rds")
+negativeControls <- readr::read_csv("RealWorldExample/NegativeControls.csv", show_col_types = FALSE)
 negativeControlCohorts <- tibble(
-  cohortId = negativeControlConceptIds,
+  cohortId = negativeControls$conceptId,
   cohortName = sprintf("Negative control %d", negativeControlConceptIds),
   outcomeConceptId = negativeControlConceptIds
 )
@@ -62,6 +62,7 @@ generateNegativeControlOutcomeCohorts(
 
 # Fetch CohortMethodData object ------------------------------------------------
 library(CohortMethod)
+negativeControls <- readr::read_csv("RealWorldExample/NegativeControls.csv", show_col_types = FALSE)
 covariateSettings <- createDefaultCovariateSettings(
   excludedCovariateConceptIds = c(1592988, 40228152, 40241331, 43013024, 45775372, 45892847, 1310149),
   addDescendantsToExclude = TRUE
@@ -72,7 +73,7 @@ cmData <- getDbCohortMethodData(
   cdmDatabaseSchema = cdmDatabaseSchema,
   targetId = 16329,
   comparatorId = 16330,
-  outcomeIds = c(10870, 11024, 11051, 24134, 73302, 74726, 78162, 79903, 81902, 134441, 139099, 140641, 141663, 141825, 141932, 192279, 193326, 196456, 197032, 197684, 199876, 201606, 256449, 257007, 257012, 260139, 261880, 313459, 313791, 372328, 373478, 374919, 378425, 433736, 435613, 435657, 436073, 437643, 441788, 442077, 443344, 443730, 4002650, 4007453, 4050747, 4077081, 4112853, 4150614, 4153359, 4174977, 4208390, 4242416, 4324765),
+  outcomeIds = c(10870, negativeControls$conceptId),
   exposureDatabaseSchema = cohortDatabaseSchema,
   exposureTable = cohortTable,
   outcomeDatabaseSchema = cohortDatabaseSchema,
@@ -135,8 +136,8 @@ ps <- readRDS(file.path(folder, "ps.rds"))
 mrs <- readRDS(file.path(folder, "mrs.rds"))
 
 estimates <- list()
-negativeControlConceptIds <- c(24134, 73302, 74726, 78162, 79903, 81902, 134441, 139099, 140641, 141663, 141825, 141932, 192279, 193326, 196456, 197032, 197684, 199876, 201606, 256449, 257007, 257012, 260139, 261880, 313459, 313791, 372328, 373478, 374919, 378425, 433736, 435613, 435657, 436073, 437643, 441788, 442077, 443344, 443730, 4002650, 4007453, 4050747, 4077081, 4112853, 4150614, 4153359, 4174977, 4208390, 4242416, 4324765)
-for (outcomeId in negativeControlConceptIds) {
+negativeControls <- readr::read_csv("RealWorldExample/NegativeControls.csv", show_col_types = FALSE)
+for (outcomeId in negativeControls$conceptId) {
   message(sprintf("Fitting model for outcome %d", outcomeId))
   studyPop <- createStudyPopulation(
     cohortMethodData = cmData,

@@ -18,7 +18,7 @@
 # settings = createModelsettings()
 
 sampling <- "strata" # strata or person
-bootstrap <- "percentile" # percentile or pivoted
+bootstrapType <- "percentile" # percentile or pivoted
 
 #' Create model fitting settings
 #'
@@ -258,7 +258,6 @@ singleBootstrapSample <- function(dummy, x, y, stratumIds, uniqueStratumIds) {
     idx <- sample.int(nrow(x), nrow(x), replace = TRUE)
   } else {
     if (sampling == "strata") {
-      # sampledStratumIds <- sample(uniqueStratumIds, size = length(uniqueStratumIds), replace = TRUE)
       sampledStratumIds <- sample(uniqueStratumIds$stratumId, 
                                   size = nrow(uniqueStratumIds), 
                                   prob = uniqueStratumIds$weight,
@@ -282,10 +281,10 @@ singleBootstrapSample <- function(dummy, x, y, stratumIds, uniqueStratumIds) {
       fit1 <- agreg.fit(x, y, stratumIds, control = control, method = "efron", rownames = seq_along(idx), init = rep(0,ncol(x)))
       fit2 <- agreg.fit(x[, -ncol(x), drop = FALSE], y, stratumIds, control = control, method = "efron", rownames = seq_along(idx),  init = rep(0, ncol(x)-1))
     })
-    return(fit2$coefficients[1] - fit1$coefficients[1])
+    return(c(fit2$coefficients[1], fit1$coefficients[1]))
   },
   error = function(e) {
-    return(NA)
+    return(c(NA, NA))
   })
 }
 
@@ -296,10 +295,8 @@ computeIndirectEffectCi <- function(data, f, mle) {
     strataIdx <- grep("strata", attr(terms, "term.labels"))
     x <- cbind(model.matrix(terms[-strataIdx], data = data)[, -1], data$m)
     if (sampling == "strata") {
-      # uniqueStratumIds <- unique(data$stratumId)
       uniqueStratumIds <- data %>%
         group_by(stratumId) %>%
-        # summarize(weight = n() / nrow(data))
         summarize(weight = sum(.data$tEnd - .data$tStart) / sum(data$tEnd - data$tStart))
       stratumIds <- data %>%
         select("stratumId") %>%
@@ -315,8 +312,8 @@ computeIndirectEffectCi <- function(data, f, mle) {
   }
   y <- Surv(data$tStart, data$tEnd, data$y)
   bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, stratumIds = stratumIds, uniqueStratumIds =uniqueStratumIds)  
-  ci <- quantile(bootstrap, c(0.025, 0.975), na.rm = TRUE)
-  if (bootstrap == "pivoted") {
+  ci <- quantile(bootstrap[1, ] - bootstrap[2, ], c(0.025, 0.975), na.rm = TRUE)
+  if (bootstrapType == "pivoted") {
     ci <- c(2*mle - ci[2], 2*mle - ci[1])
   }
   return(ci)

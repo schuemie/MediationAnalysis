@@ -44,7 +44,7 @@ runSetOfSimulations <- function(folder,
   on.exit(ParallelLogger::unregisterLogger("DEFAULT_ERRORREPORT_LOGGER", silent = TRUE), add = TRUE)
   
   cluster <- ParallelLogger::makeCluster(maxCores)
-  on.exit(ParallelLogger::stopCluster(cluster))
+  on.exit(ParallelLogger::stopCluster(cluster), add = TRUE)
   allResults <- list()
   # simulationSettings = simulationSettingsList[[1]]
   # modelSettings = modelSettingsList[[1]]
