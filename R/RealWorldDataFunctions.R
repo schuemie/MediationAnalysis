@@ -93,7 +93,7 @@ createMediatorRiskScore <- function(cohortMethodData,
   return(mrs)
 }
 
-#' Plot the mediator risk score
+#' Plot the mediator risk score by exposure
 #'
 #' @param mrs             A tibble containing the MRS as created by `createMrs()`.
 #' @param targetLabel     A label to us for the target cohort.
@@ -108,12 +108,12 @@ createMediatorRiskScore <- function(cohortMethodData,
 #' A ggplot object. Use the `ggplot2::ggsave()` function to save to file in a different format.
 #' 
 #' @export
-plotMrs <- function(mrs,
-                    targetLabel = "Target",
-                    comparatorLabel = "Comparator",
-                    showFraction = TRUE,
-                    title = NULL,
-                    fileName = NULL) {
+plotMrsByExposure <- function(mrs,
+                              targetLabel = "Target",
+                              comparatorLabel = "Comparator",
+                              showFraction = TRUE,
+                              title = NULL,
+                              fileName = NULL) {
   mrs <- mrs %>%
     mutate(label = if_else(.data$treatment == 1, targetLabel, comparatorLabel))
   mrs$label <- factor(mrs$label, levels = c(targetLabel, comparatorLabel))
@@ -144,6 +144,68 @@ plotMrs <- function(mrs,
                                        size = 3.5)
   }
   # plot
+  if (!is.null(title)) {
+    plot <- plot + ggplot2::ggtitle(title)
+  }
+  if (!is.null(fileName)) {
+    ggplot2::ggsave(fileName, plot, width = 5, height = 3.5, dpi = 400)
+  }
+  return(plot)
+}
+
+#' Plot the mediator risk score by mediator status
+#'
+#' @param mrs             A tibble containing the MRS as created by `createMrs()`.
+#' @param targetLabel     A label to us for the target cohort.
+#' @param comparatorLabel A label to us for the comparator cohort.
+#' @param showFraction    Add a label to the plot showing what fraction of the population has the 
+#'                        mediator during the time-at-risk?
+#' @param title             Optional: the main title for the plot.
+#' @param fileName        Name of the file where the plot should be saved, for example 'plot.png'.
+#'                        see the function [ggplot2::ggsave()] for supported file formats.
+#'
+#' @return
+#' A ggplot object. Use the `ggplot2::ggsave()` function to save to file in a different format.
+#' 
+#' @export
+plotMrsByMediator <- function(mrs,
+                              showFraction = TRUE,
+                              title = NULL,
+                              fileName = NULL) {
+  mediatorLabel <- "With mediator"
+  withoutMediatorLabel <- "Without mediator"
+  
+  mrs <- mrs %>%
+    mutate(label = if_else(is.na(.data$daysToMediator), withoutMediatorLabel, mediatorLabel))
+  mrs$label <- factor(mrs$label, levels = c(mediatorLabel, withoutMediatorLabel))
+  plot <- ggplot2::ggplot(mrs, ggplot2::aes(x = .data$mrs)) +
+    ggplot2::geom_density(ggplot2::aes(color = .data$label, group = .data$label, fill = .data$label)) +
+    ggplot2::scale_fill_manual(values = c(
+      rgb(0.4, 0.09, 0.30, alpha = 0.5),
+      rgb(0.80, 0.70, 0.15, alpha = 0.5)
+    )) +
+    ggplot2::scale_color_manual(values = c(
+      rgb(0.4, 0.09, 0.30, alpha = 0.5),
+      rgb(0.96, 0.82, 0.26, alpha = 0.5)
+    )) +
+    ggplot2::scale_x_log10("Mediator risk score", labels = scales::comma) +
+    ggplot2::scale_y_continuous("Density") + 
+    ggplot2::theme(legend.title = ggplot2::element_blank(), legend.position = "top")
+  plot
+  if (showFraction) {
+    labelData <- data.frame(text = sprintf("%0.2f%% have the mediator", 100*mean(!is.na(mrs$daysToMediator))))
+    y <- max(density(log10(mrs$mrs[is.na(mrs$daysToMediator)]))$y, density(log10(mrs$mrs[!is.na(mrs$daysToMediator)]))$y)
+    # Weird bug in ggplot2: log transform is not applied to geom_label x coordinates:
+    plot <- plot + ggplot2::geom_label(x = log10(max(mrs$mrs)), 
+                                       y = y,
+                                       hjust = "right", 
+                                       vjust = "top", 
+                                       alpha = 0.8, 
+                                       ggplot2::aes(label = .data$text), 
+                                       data = labelData, 
+                                       size = 3.5)
+  }
+  plot
   if (!is.null(title)) {
     plot <- plot + ggplot2::ggtitle(title)
   }

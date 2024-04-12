@@ -17,15 +17,17 @@ ROhdsiWebApi::authorizeWebApi(baseUrl = Sys.getenv("baseUrl"),
                               authMethod = "windows")
 cohorts <- tibble(
   cohortId = c(16329,
+               7835, 
                16330,
                16484,
-               11024,
-               11051),
+               2072,
+               2087),
   cohortName =c("DOACs", 
+                "Rivaroxaban",
                 "Warfarin",
                 "Major bleeding",
-                "MACE",
-                "AMI")
+                "AMI",
+                "Ischemic stroke")
 )
 cohortDefinitionSet <- ROhdsiWebApi::exportCohortDefinitionSet(baseUrl = Sys.getenv("baseUrl"),
                                                                cohortIds = cohorts$cohortId)
@@ -36,13 +38,12 @@ saveRDS(cohortDefinitionSet, "RealWorldExample/CohortDefinitionSet.rds")
 
 # Create cohorts ---------------------------------------------------------------
 library(CohortGenerator)
+library(dplyr)
 cohortDefinitionSet <- readRDS("RealWorldExample/CohortDefinitionSet.rds")
-negativeControls <- readr::read_csv("RealWorldExample/NegativeControls.csv", show_col_types = FALSE)
-negativeControlCohorts <- tibble(
-  cohortId = negativeControls$conceptId,
-  cohortName = sprintf("Negative control %d", negativeControlConceptIds),
-  outcomeConceptId = negativeControlConceptIds
-)
+negativeControls <- readr::read_csv("RealWorldExample/NegativeControls.csv", show_col_types = FALSE) %>%
+  transmute(cohortId = conceptId,
+            cohortName = conceptName,
+            outcomeConceptId = conceptId)
 cohortTableNames <- getCohortTableNames(cohortTable = cohortTable)
 createCohortTables(connectionDetails = connectionDetails,
                    cohortDatabaseSchema = cohortDatabaseSchema,
@@ -57,7 +58,7 @@ generateNegativeControlOutcomeCohorts(
   cdmDatabaseSchema = cdmDatabaseSchema,
   cohortDatabaseSchema = cohortDatabaseSchema,
   cohortTable = cohortTable,
-  negativeControlOutcomeCohortSet = negativeControlCohorts
+  negativeControlOutcomeCohortSet = negativeControls
 )
 
 # Fetch CohortMethodData object ------------------------------------------------
@@ -73,14 +74,13 @@ cmData <- getDbCohortMethodData(
   cdmDatabaseSchema = cdmDatabaseSchema,
   targetId = 16329,
   comparatorId = 16330,
-  outcomeIds = c(10870, negativeControls$conceptId),
+  outcomeIds = c(2072, 2087, 16484, negativeControls$conceptId),
   exposureDatabaseSchema = cohortDatabaseSchema,
   exposureTable = cohortTable,
   outcomeDatabaseSchema = cohortDatabaseSchema,
   outcomeTable = cohortTable,
   restrictToCommonPeriod = TRUE,
   covariateSettings = covariateSettings
-  # maxCohortSize = 10000
 )
 dir.create(folder, recursive = TRUE)
 saveCohortMethodData(cmData, file.path(folder, "cmData.zip"))
@@ -108,7 +108,7 @@ plotPs(ps,
        fileName = file.path(folder, "PsDistribution.png"))
 
 mrs <- createMediatorRiskScore(cohortMethodData = cmData, 
-                               mediatorId = 10870,
+                               mediatorId = 16484,
                                removeDuplicateSubjects = "keep first",
                                riskWindowStart = 0,
                                startAnchor = "cohort start",
@@ -125,8 +125,8 @@ mrs <- createMediatorRiskScore(cohortMethodData = cmData,
                                                        threads = 10))
 saveRDS(mrs, file.path(folder, "mrs.rds"))
 mrs <- readRDS(file.path(folder, "mrs.rds"))
-plotMrs(mrs,
-        fileName = file.path(folder, "MrsDistribution.png"))
+plotMrsByExposure(mrs, fileName = file.path(folder, "MrsByExposure.png"))
+plotMrsByMediator(mrs, fileName = file.path(folder, "MrsByMediator.png"))
 
 # Compute estimates for negative controls --------------------------------------
 library(CohortMethod)
@@ -213,7 +213,7 @@ studyPop %>%
 
 # Run CohortDiagnostics --------------------------------------------------------
 library(CohortDiagnostics)
-cohortDefinitionSet <- readRDS("extras/CohortDefinitionSet.rds")
+cohortDefinitionSet <- readRDS("RealWorldExample/CohortDefinitionSet.rds")
 executeDiagnostics(cohortDefinitionSet = cohortDefinitionSet,
                    exportFolder = file.path(folder, "cohortDiagnostics"),
                    databaseId = "CCAE",
@@ -221,7 +221,8 @@ executeDiagnostics(cohortDefinitionSet = cohortDefinitionSet,
                    connectionDetails = connectionDetails,
                    cdmDatabaseSchema = cdmDatabaseSchema,
                    cohortTable = cohortTable)
-createMergedResultsFile(dataFolder = file.path(folder, "cohortDiagnostics"))
+createMergedResultsFile(dataFolder = file.path(folder, "cohortDiagnostics"),
+                        sqliteDbPath = file.path(folder, "MergedCohortDiagnosticsData.sqlite"))
 launchDiagnosticsExplorer()
 
 # Create cohort explorer app ---------------------------------------------------
