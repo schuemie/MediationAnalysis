@@ -20,3 +20,103 @@
    Pages="337--341",
    Month="Mar"
 }
+
+@ARTICLE{tian_2018,
+  title    = "Evaluating large-scale propensity score performance through
+              real-world and synthetic data experiments",
+  author   = "Tian, Yuxi and Schuemie, Martijn J and Suchard, Marc A",
+  abstract = "Background: Propensity score adjustment is a popular approach for
+              confounding control in observational studies. Reliable frameworks
+              are needed to determine relative propensity score performance in
+              large-scale studies, and to establish optimal propensity score
+              model selection methods. Methods: We detail a propensity score
+              evaluation framework that includes synthetic and real-world data
+              experiments. Our synthetic experimental design extends the
+              'plasmode' framework and simulates survival data under known
+              effect sizes, and our real-world experiments use a set of
+              negative control outcomes with presumed null effect sizes. In
+              reproductions of two published cohort studies, we compare two
+              propensity score estimation methods that contrast in their model
+              selection approach: L1-regularized regression that conducts a
+              penalized likelihood regression, and the 'high-dimensional
+              propensity score' (hdPS) that employs a univariate covariate
+              screen. We evaluate methods on a range of outcome-dependent and
+              outcome-independent metrics. Results: L1-regularization
+              propensity score methods achieve superior model fit, covariate
+              balance and negative control bias reduction compared with the
+              hdPS. Simulation results are mixed and fluctuate with simulation
+              parameters, revealing a limitation of simulation under the
+              proportional hazards framework. Including regularization with the
+              hdPS reduces commonly reported non-convergence issues but has
+              little effect on propensity score performance. Conclusions:
+              L1-regularization incorporates all covariates simultaneously into
+              the propensity score model and offers propensity score
+              performance superior to the hdPS marginal screen.",
+  journal  = "Int. J. Epidemiol.",
+  volume   =  47,
+  number   =  6,
+  pages    = "2005--2014",
+  month    =  dec,
+  year     =  2018,
+  language = "en"
+}
+
+@ARTICLE{rassen_2012,
+  title     = "One-to-many propensity score matching in cohort studies",
+  author    = "Rassen, Jeremy A and Shelat, Abhi A and Myers, Jessica and
+               Glynn, Robert J and Rothman, Kenneth J and Schneeweiss,
+               Sebastian",
+  abstract  = "BACKGROUND: Among the large number of cohort studies that employ
+               propensity score matching, most match patients 1:1. Increasing
+               the matching ratio is thought to improve precision but may come
+               with a trade-off with respect to bias. OBJECTIVE: To evaluate
+               several methods of propensity score matching in cohort studies
+               through simulation and empirical analyses. METHODS: We simulated
+               cohorts of 20,000 patients with exposure prevalence of
+               10\%-50\%. We simulated five dichotomous and five continuous
+               confounders. We estimated propensity scores and matched using
+               digit-based greedy (``greedy''), pairwise nearest neighbor
+               within a caliper (``nearest neighbor''), and a nearest neighbor
+               approach that sought to balance the scores of the comparison
+               patient above and below that of the treated patient (``balanced
+               nearest neighbor''). We matched at both fixed and variable
+               matching ratios and also evaluated sequential and parallel
+               schemes for the order of formation of 1:n match groups. We then
+               applied this same approach to two cohorts of patients drawn from
+               administrative claims data. RESULTS: Increasing the match ratio
+               beyond 1:1 generally resulted in somewhat higher bias. It also
+               resulted in lower variance with variable ratio matching but
+               higher variance with fixed. The parallel approach generally
+               resulted in higher mean squared error but lower bias than the
+               sequential approach. Variable ratio, parallel, balanced nearest
+               neighbor matching generally yielded the lowest bias and mean
+               squared error. CONCLUSIONS: 1:n matching can be used to increase
+               precision in cohort studies. We recommend a variable ratio,
+               parallel, balanced 1:n, nearest neighbor approach that increases
+               precision over 1:1 matching at a small cost in bias.",
+  journal   = "Pharmacoepidemiol. Drug Saf.",
+  publisher = "Wiley",
+  volume    = "21 Suppl 2",
+  pages     = "69--80",
+  month     =  may,
+  year      =  2012,
+  copyright = "http://onlinelibrary.wiley.com/termsAndConditions\#vor",
+  language  = "en"
+}
+
+
+@ARTICLE{vanderWeele_2011,
+  title     = "Causal mediation analysis with survival data",
+  author    = "VanderWeele, Tyler J",
+  journal   = "Epidemiology",
+  publisher = "Ovid Technologies (Wolters Kluwer Health)",
+  volume    =  22,
+  number    =  4,
+  pages     = "582--585",
+  month     =  jul,
+  year      =  2011,
+  language  = "en"
+}
+
+
+

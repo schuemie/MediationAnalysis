@@ -1,6 +1,6 @@
 ---
-title: "Evaluation of methods for synthesizing interaction effect estimates"
-author: "Martijn Schuemie, Yong Chen"
+title: "Exploring mediation through major bleeding between DOACs and CV events"
+author: "Martijn Schuemie, Zhong Yuan, Elliot Barnathan, Jamie Weaver"
 date: "`r Sys.Date()`"
 output: 
   word_document: 
@@ -19,37 +19,52 @@ source("PrintCohortDefinitions.R")
 
 # Introduction
 
+Anticoagulant therapies have undergone significant evolution with the development of direct oral anticoagulants (DOACs), which have been increasingly favored over traditional warfarin due to their promising safety profiles, fewer dietary restrictions, and reduced need for monitoring. While DOACs are associated with a lower risk of major bleeding compared to warfarin, their overall impact on cardiovascular (CV) outcomes remains a subject of intense research. Major bleeding is a critical concern in anticoagulant therapy and can profoundly influence patient outcomes and treatment efficacy. 
 
+This real-world study aims to dissect the complex interplay between anticoagulant type, major bleeding events, and cardiovascular outcomes. This protocol outlines the methodology for an observational study that will estimate the extent to which the effect of DOACs versus warfarin on cardiovascular outcomes is mediated through their differential impact on major bleeding rates. By leveraging real-world data, the study will contribute valuable insights into the comparative effectiveness and safety of these anticoagulants, guiding clinical decision-making and potentially informing future guidelines.
 
-# Example mediation analysis
+This study will utilize novel advanced statistical techniques to model the mediation effects, controlling for a range of confounding factors that could influence both bleeding risk and cardiovascular outcomes.
 
-We therefore formulate an example comparative cohort study as follows:
+# Study design
 
-- **Target**: New users of diclofenac (a non-selective NSAID)
-- **Comparator**: New users of warfarin
-- **Outcome**: MACE
-- **Mediator**: Major bleeding
-- **Time at risk**: On-treatment: starting on the day of treatment initiation, ending when treatment is stopped (for at least 30 days).
-- **Model**: Cox proportional hazards
+This study will employ a new-user comparative cohort design, comparing a target cohort (rivaroxaban or the entire class of DOACs) to a comparator cohort (warfarin). 
+Both target and cohort are defined as first exposure to drug of interest, requiring 365 days of prior observation. 
+Followup starts on the day of treatment initiation, and ends at end of continuous exposure (allowing for 30-day gaps) or occurrence of the outcome, whichever comes first. 
+A single mediator - major bleeding - is defined and included in the model. This table lists all the comparisons that will be made:
 
-Cohort definitions of the target, comparator, and outcome are provided in Appendix A. 
+| Target      | Comparator | Mediator       | Outcome         |
+|:------------|:-----------|:---------------|:----------------|
+| Rivaroxaban | Warfarin   | Major bleeding | Acute MI        |
+| Rivaroxaban | Warfarin   | Major bleeding | Ischemic stroke |
+| DOACs       | Warfarin   | Major bleeding | Acute MI        |
+| DOACs       | Warfarin   | Major bleeding | Ischemic stroke |
 
-We will require at least 365 days of continuous observation prior to the index date.
+The model is a Cox proportional hazards model, with the mediator as time-varying covariate. 
+Cohort definitions of the targets, comparator, mediator and outcomes are provided in Appendix A. 
 
-Large-scale propensity scores (PS) will be fitted using the standard set of features, including all drugs, conditions, procedures, measurements, and observations in the year prior to index date, as well as demographics. We will use variable ratio PS matching [ref Rassen].
+## Estimands of interest
 
-Large-scale mediator risk scores (MRS) will be fitted using the standard set of features, including all drugs, conditions, procedures, measurements, and observations in the year prior to index date, as well as demographics.
+For each target-comparator-outcome triplet, two Cox modes will be fitted, one with the mediator and one without. From these two models, the following estimands will be reported, each on the hazard ratio scale, including their 95% confidence intervals: [@vanderWeele_2011]
 
-A set of 50 negative control outcomes, outcomes believed to be caused by neither the target nor the comparator, has been defined. (See Appendix B). We assume that these controls are negative both for the direct effect and the mediated effect.
+- **Main effect**: The effect of the target on the outcome, relative to the comparator.
+- **Direct effect**: The effect of the target on the outcome, relative to the comparator, *not* mediated by the mediator.
+- **Indirect effect**: The effect of the target on the outcome, relative to the comparator, mediated by the mediator.
 
+The indirect effect is estimated using the difference method, subtracting the (log) direct effect from the (log) main effect.
 
-# Evaluation of evidence synthesis methods
+## Confounding adjustment
 
-The example study will be executed across the databases described in the 'Data sources' section. Various approaches for likelihood profiling will be applied to produce summary estimates for the main effect and the interaction effect, both for the outcome of interest (GI bleed) as well as the negative control outcomes. 
+Adjustment for confounding between target and comparator is achieved by large-scale propensity scores (LSPS), [@tian_2018] used for variable ratio PS matching. [@rassen_2012] 
 
-The summary estimates for GI bleed will be compared with the gold standard, produced by pooling the data (stratified by data source).
+Adjustment for confounding between those with the mediator and those without is achieved by a large-scale mediator risk score (MRS). 
+The MRS is fitted as a Poisson regression by using the same set of baseline covariates used in the LSPS, including all demographics, drug exposures, conditions, procedures, etc. observed on or in the year prior to treatment initiation. 
+Similar to the LSPS, the MRS model is fitted using L2 regularization, using 10-fold cross-validation to select the optimal hyperparameter by optimizing out-of-sample likelihood.
+The MRS is included in the outcome model using a 5-knot bicubic spline.
 
-The negative control summary estimates will be used to estimate residual systematic error.
+## Negative controls
+
+A set of 50 negative control outcomes - outcomes believed to be caused by neither the target nor the comparator - has been defined. (See Appendix B). We assume that these controls are negative both for the direct effect and the mediated effect.
+The negative control summary estimates will be used to estimate residual systematic error for all estimands of interest.
 
 
 # Data sources
@@ -68,23 +83,33 @@ cohortDefinitionSet <- readRDS("CohortDefinitionSet.rds")
 ```
 
 ```{r echo=FALSE, results="asis", warning=FALSE, message=FALSE}
+json <- cohortDefinitionSet$json[cohortDefinitionSet$cohortId == 7835]
+printCohortDefinitionFromNameAndJson("Target: Rivaroxaban", json)
+```
+
+```{r echo=FALSE, results="asis", warning=FALSE, message=FALSE}
 json <- cohortDefinitionSet$json[cohortDefinitionSet$cohortId == 16329]
-printCohortDefinitionFromNameAndJson("Target", json)
+printCohortDefinitionFromNameAndJson("Target: DOACs", json)
 ```
 
 ```{r echo=FALSE, results="asis", warning=FALSE, message=FALSE}
 json <- cohortDefinitionSet$json[cohortDefinitionSet$cohortId == 16330]
-printCohortDefinitionFromNameAndJson("Comparator", json)
+printCohortDefinitionFromNameAndJson("Comparator: Warfarin", json)
 ```
 
 ```{r echo=FALSE, results="asis", warning=FALSE, message=FALSE}
 json <- cohortDefinitionSet$json[cohortDefinitionSet$cohortId == 16484]
-printCohortDefinitionFromNameAndJson("Mediator", json)
+printCohortDefinitionFromNameAndJson("Mediator: Major bleeding", json)
 ```
 
 ```{r echo=FALSE, results="asis", warning=FALSE, message=FALSE}
-json <- cohortDefinitionSet$json[cohortDefinitionSet$cohortId == 11024]
-printCohortDefinitionFromNameAndJson("Outcome", json)
+json <- cohortDefinitionSet$json[cohortDefinitionSet$cohortId == 2072]
+printCohortDefinitionFromNameAndJson("Outcome: Acute MI", json)
+```
+
+```{r echo=FALSE, results="asis", warning=FALSE, message=FALSE}
+json <- cohortDefinitionSet$json[cohortDefinitionSet$cohortId == 2087]
+printCohortDefinitionFromNameAndJson("Outcome: Ischemic stroke", json)
 ```
 
 # Appendix B: Negative controls
