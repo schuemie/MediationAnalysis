@@ -71,6 +71,15 @@ The negative control summary estimates will be used to estimate residual systema
 
 The DatabaseDiagnostics package was used to select those databases that appear to have the elements needed for the example estimation questions:
 
+```{r echo=FALSE, warning=FALSE, message=FALSE, cache=TRUE, results="asis"}
+dbInfo <- readRDS("DatabaseInfo.rds") %>%
+  arrange(cdmSourceName)
+output <- c()
+for (i in seq_len(nrow(dbInfo))) {
+  output[i] <- sprintf("\n## %s\n\n %s\n", dbInfo$cdmSourceName[i], dbInfo$sourceDescription[i])
+}
+writeLines(output)
+```
 
 # References
 
@@ -83,7 +92,7 @@ cohortDefinitionSet <- readRDS("CohortDefinitionSet.rds")
 ```
 
 ```{r echo=FALSE, results="asis", warning=FALSE, message=FALSE}
-json <- cohortDefinitionSet$json[cohortDefinitionSet$cohortId == 7835]
+json <- cohortDefinitionSet$json[cohortDefinitionSet$cohortId == 16586]
 printCohortDefinitionFromNameAndJson("Target: Rivaroxaban", json)
 ```
 
