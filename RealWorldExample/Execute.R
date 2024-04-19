@@ -1,11 +1,14 @@
 source("RealWorldExample/DatabaseDetails.R")
 
+# Part 1: Create cohorts --------------------------------------------------
+library(CohortGenerator)
+library(dplyr)
+
 # database = databases[[1]]
+# databases = databases[2:5]
 for (database in databases) {
-  
-  # Create cohorts ---------------------------------------------------------------
-  library(CohortGenerator)
-  library(dplyr)
+  message(sprintf("Creating cohorts for %s", database$databaseId))
+  dir.create(database$outputFolder, showWarnings = FALSE, recursive = TRUE)
   cohortDefinitionSet <- readRDS("RealWorldExample/CohortDefinitionSet.rds")
   negativeControls <- readr::read_csv("RealWorldExample/NegativeControls.csv", show_col_types = FALSE) %>%
     transmute(cohortId = conceptId,
@@ -27,9 +30,27 @@ for (database in databases) {
     cohortTable = database$cohortTable,
     negativeControlOutcomeCohortSet = negativeControls
   )
+  counts <- CohortGenerator::getCohortCounts(
+    connectionDetails = database$connectionDetails,
+    cohortDatabaseSchema = database$cohortDatabaseSchema,
+    cohortTable = database$cohortTable,
+    cohortDefinitionSet = cohortDefinitionSet,
+    cohortIds = cohortDefinitionSet$cohortId
+  )
+  counts <- counts %>%
+    select("cohortId", "cohortName", "cohortEntries", "cohortSubjects")
+  readr::write_csv(counts, file.path(database$outputFolder, "CohortCounts.csv"))
+}
+
+# Part 2: Compute diagnostics --------------------------------------------------
+library(CohortMethod)
+library(MediationAnalysis)
+
+# database = databases[[1]]
+for (database in databases) {
+  message(sprintf("Computing diagnostics for %s", database$databaseId))
   
-  # Fetch CohortMethodData object ------------------------------------------------
-  library(CohortMethod)
+  # Fetch CohortMethodData object
   negativeControls <- readr::read_csv("RealWorldExample/NegativeControls.csv", show_col_types = FALSE)
   covariateSettings <- createDefaultCovariateSettings(
     excludedCovariateConceptIds = c(1592988, 40228152, 40241331, 43013024, 45775372, 45892847, 1310149),
@@ -49,14 +70,10 @@ for (database in databases) {
     restrictToCommonPeriod = TRUE,
     covariateSettings = covariateSettings
   )
-  dir.create(folder, recursive = TRUE)
   saveCohortMethodData(cmData, file.path(database$outputFolder, "cmData.zip"))
   
-  # Fit propensity and mediator risk models --------------------------------------
-  library(CohortMethod)
-  library(MediationAnalysis)
+  # Fit propensity and mediator risk models
   cmData <- loadCohortMethodData(file.path(database$outputFolder, "cmData.zip"))
-  
   ps <- createPs(cmData,
                  control = createControl(noiseLevel = "quiet", 
                                          cvType = "auto", 
@@ -95,7 +112,7 @@ for (database in databases) {
   plotMrsByExposure(mrs, fileName = file.path(database$outputFolder, "MrsByExposure.png"))
   plotMrsByMediator(mrs, fileName = file.path(database$outputFolder, "MrsByMediator.png"))
   
-  # Compute estimates for negative controls --------------------------------------
+  # Compute estimates for negative controls
   library(CohortMethod)
   library(MediationAnalysis)
   cmData <- loadCohortMethodData(file.path(database$outputFolder, "cmData.zip"))
