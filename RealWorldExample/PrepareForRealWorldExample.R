@@ -11,22 +11,48 @@ cohorts <- tibble(
   cohortId = c(16329,
                16586, 
                16330,
-               16484,
+               16853,
+               16991,
                2072,
-               2087),
+               2087,
+               17002),
   cohortName =c("DOACs", 
                 "Rivaroxaban",
                 "Warfarin",
-                "Major bleeding",
+                "Extracranial Major bleeding IP-ER",
+                "Extracranial Major bleeding IP",
                 "AMI",
-                "Ischemic stroke")
+                "Ischemic stroke",
+                "Composite")
 )
+
 cohortDefinitionSet <- ROhdsiWebApi::exportCohortDefinitionSet(baseUrl = Sys.getenv("baseUrl"),
                                                                cohortIds = cohorts$cohortId)
 cohortDefinitionSet <- cohortDefinitionSet %>%
   select(-"cohortName") %>%
   inner_join(cohorts, by = join_by("cohortId"))
 saveRDS(cohortDefinitionSet, "RealWorldExample/CohortDefinitionSet.rds")
+
+# Specify target-comparator-mediator-outcome combinations ----------------------
+cohortDefinitionSet <- readRDS("RealWorldExample/CohortDefinitionSet.rds") 
+targets <- cohortDefinitionSet %>%
+  filter(cohortId %in% c(16329, 16586)) %>%
+  select(targetId = "cohortId", targetName = "cohortName")
+comparator <- cohortDefinitionSet %>%
+  filter(cohortId %in% c(16330)) %>%
+  select(comparatorId = "cohortId", comparatorName = "cohortName")
+mediators <- cohortDefinitionSet %>%
+  filter(cohortId %in% c(16853, 16991)) %>%
+  select(mediatorId = "cohortId", mediatorName = "cohortName")
+outcomes <- cohortDefinitionSet %>%
+  filter(cohortId %in% c(2072, 2087, 17002)) %>%
+  select(outcomeId = "cohortId", outcomeName = "cohortName")
+tcmos <- targets %>%
+  cross_join(comparator) %>%
+  cross_join(mediators) %>%
+  cross_join(outcomes)
+saveRDS(tcmos, "RealWorldExample/tcmos.rds") 
+
 
 # Database diagnostics ---------------------------------------------------------
 library(dplyr)
