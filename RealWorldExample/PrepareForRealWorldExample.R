@@ -28,6 +28,16 @@ cohortDefinitionSet <- cohortDefinitionSet %>%
   inner_join(cohorts, by = join_by("cohortId"))
 saveRDS(cohortDefinitionSet, "RealWorldExample/CohortDefinitionSet.rds")
 
+# Combine HAS-BLED cohorts into cohort definition set --------------------------
+hasBledCohorts <- readr::read_csv("RealWorldExample/HasBled/HasBledCohorts.csv", show_col_types = FALSE)
+hasBledCohorts$json <- ""
+hasBledCohorts$sql <- ""
+for (i in seq_len(nrow(hasBledCohorts))) {
+  hasBledCohorts$json[i] <- SqlRender::readSql(file.path("RealWorldExample/HasBled", sprintf("%s.json", hasBledCohorts$cohortName[i])))
+  hasBledCohorts$sql[i] <- SqlRender::readSql(file.path("RealWorldExample/HasBled", sprintf("%s.sql", hasBledCohorts$cohortName[i])))
+}
+saveRDS(hasBledCohorts, "RealWorldExample/HasBledCohortDefinitionSet.rds")
+
 # Database diagnostics ---------------------------------------------------------
 library(dplyr)
 cohortDefinitionSet <- readRDS("RealWorldExample/CohortDefinitionSet.rds")
