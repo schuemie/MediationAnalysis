@@ -4,7 +4,7 @@ source("RealWorldExample/DatabaseDetails.R")
 library(CohortGenerator)
 library(dplyr)
 
-# database = databases[[1]]
+# database = databases[[2]]
 # databases = databases[2:5]
 for (database in databases) {
   message(sprintf("Creating cohorts for %s", database$databaseId))
@@ -51,12 +51,14 @@ for (database in databases) {
 # Part 2: Compute diagnostics --------------------------------------------------
 library(CohortMethod)
 library(MediationAnalysis)
+library(tidyr)
+source("RealWorldExample/HasBled/HasBledCovariateBuilder.R")
 tcmos <- readRDS("RealWorldExample/tcmos.rds") 
 tcs <- tcmos %>%
   distinct(targetId, targetName, comparatorId, comparatorName)
 negativeControls <- readr::read_csv("RealWorldExample/NegativeControls.csv", show_col_types = FALSE)
 
-# database = databases[[1]]
+# database = databases[[2]]
 # i = 1
 for (database in databases) {
   message(sprintf("Computing diagnostics for %s", database$databaseId))
@@ -66,11 +68,12 @@ for (database in databases) {
     cmDataFileName <- file.path(database$outputFolder, sprintf("cmData_t%d_c%s.zip", tc$targetId, tc$comparatorId))
     
     if (!file.exists(cmDataFileName)) {
-      covariateSettings <- createDefaultCovariateSettings(
+      defaultCovariateSettings <- createDefaultCovariateSettings(
         excludedCovariateConceptIds = c(1592988, 40228152, 40241331, 43013024, 45775372, 45892847, 1310149),
         addDescendantsToExclude = TRUE
       )
-      
+      hasBledCovariateSettings <- createHasBledCovariateSettings()
+      covariateSettings <- list(defaultCovariateSettings, hasBledCovariateSettings) 
       cmData <- getDbCohortMethodData(
         connectionDetails = database$connectionDetails,
         cdmDatabaseSchema = database$cdmDatabaseSchema,
@@ -119,9 +122,34 @@ for (database in databases) {
              showEquiposeLabel = TRUE,
              showCountsLabel = TRUE,
              fileName = file.path(database$outputFolder, sprintf("ps_t%d_c%s.png", tc$targetId, tc$comparatorId)))
+      equipoise <- bind_cols(tc, data.frame(equipoise = computeEquipoise(ps)))
+      saveRDS(equipoise, file.path(database$outputFolder, sprintf("equipoise_t%d_c%s.rds", tc$targetId, tc$comparatorId)))
       saveRDS(ps, psFileName)
     } else {
       ps <- readRDS(psFileName)
+    }
+    balanceFileName <- file.path(database$outputFolder, sprintf("balance_t%d_c%s.rds", tc$targetId, tc$comparatorId))
+    if (!file.exists(balanceFileName)) {
+      studyPop <- createStudyPopulation(
+        cohortMethodData = cmData,
+        population = ps,
+        restrictToCommonPeriod = TRUE,
+        removeDuplicateSubjects = "keep first",
+        riskWindowStart = 0,
+        startAnchor = "cohort start",
+        riskWindowEnd = 0,
+        endAnchor = "cohort end"
+      )
+      strataPop <- matchOnPs(studyPop, maxRatio = 100)
+      balance <- computeCovariateBalance(strataPop, cmData)
+      plotCovariateBalanceScatterPlot(
+        balance = balance,
+        threshold = 0.1,
+        showCovariateCountLabel = TRUE,
+        showMaxLabel = TRUE,
+        fileName = file.path(database$outputFolder, sprintf("balanceScatterplot_t%d_c%s.png", tc$targetId, tc$comparatorId))
+      )
+      saveRDS(balance, balanceFileName)
     }
     mdrrFileName <- file.path(database$outputFolder, sprintf("mdrr_t%d_c%s.csv", tc$targetId, tc$comparatorId))
     if (!file.exists(mdrrFileName)) {
@@ -146,7 +174,17 @@ for (database in databases) {
         )
         strataPop <- matchOnPs(studyPop, maxRatio = 100)
         mdrr <- computeMdrr(strataPop)
-        mdrr <- bind_cols(tc, outcome, mdrr)
+        followup <- studyPop %>%
+          group_by(treatment) %>%
+          summarise(p10FollowUp = quantile(survivalTime, 0.1),
+                    p25FollowUp = quantile(survivalTime, 0.25),
+                    medianFollowup = median(survivalTime),
+                    p75FollowUp = quantile(survivalTime, 0.75),
+                    p90FollowUp = quantile(survivalTime, 0.9)) %>%
+          mutate(treatment = if_else(treatment == 1, "Target", "Comparator")) %>%
+          pivot_wider(names_from = treatment,
+                      values_from = c("p10FollowUp", "p25FollowUp", "medianFollowup", "p75FollowUp", "p90FollowUp"))
+        mdrr <- bind_cols(tc, outcome, mdrr, followup)
         mdrrs[[j]] <- mdrr
       }
       mdrrs <- bind_rows(mdrrs)
@@ -218,27 +256,55 @@ for (database in databases) {
         estimates <- bind_rows(estimates)
         estimates <- estimates %>%
           mutate(mainSeLogRr = (mainLogUb - mainLogLb) / (2*qnorm(0.975)),
-                 indirectSeLogRr = (indirectLogUb - indirectLogLb ) / (2*qnorm(0.975)))
-        
+                 indirectSeLogRr = (indirectLogUb - indirectLogLb ) / (2*qnorm(0.975)),
+                 directSeLogRr = (directLogUb - directLogLb ) / (2*qnorm(0.975)))
+        nullMain <- EmpiricalCalibration::fitMcmcNull(
+          logRr = estimates$mainLogHr,
+          seLogRr = estimates$mainSeLogRr
+        )
         EmpiricalCalibration::plotCalibrationEffect(
           logRrNegatives = estimates$mainLogHr,
           seLogRrNegatives = estimates$mainSeLogRr,
+          null = nullMain,
           title = "Main effect",
           xLabel = "Hazard ratio",
           showCis = TRUE,
           showExpectedAbsoluteSystematicError = TRUE,
           fileName = file.path(database$outputFolder, sprintf("ncsMainEffect_t%d_c%s_m%d.png", tc$targetId, tc$comparatorId, mediator$mediatorId))
         )
-        
+        nullDirect <- EmpiricalCalibration::fitMcmcNull(
+          logRr = estimates$directLogHr,
+          seLogRr = estimates$directSeLogRr
+        )
+        EmpiricalCalibration::plotCalibrationEffect(
+          logRrNegatives = estimates$directLogHr,
+          seLogRrNegatives = estimates$directSeLogRr,
+          null = nullDirect,
+          title = "Direct effect",
+          xLabel = "Hazard ratio",
+          showCis = TRUE,
+          showExpectedAbsoluteSystematicError = TRUE,
+          fileName = file.path(database$outputFolder, sprintf("ncsDirectEffect_t%d_c%s_m%d.png", tc$targetId, tc$comparatorId, mediator$mediatorId))
+        )      
+        nullIndirect <- EmpiricalCalibration::fitMcmcNull(
+          logRr = estimates$indirectLogHr,
+          seLogRr = estimates$indirectSeLogRr
+        )
         EmpiricalCalibration::plotCalibrationEffect(
           logRrNegatives = estimates$indirectLogHr,
           seLogRrNegatives = estimates$indirectSeLogRr,
+          null = nullIndirect,
           title = "Indirect effect",
           xLabel = "Hazard ratio",
           showCis = TRUE,
           showExpectedAbsoluteSystematicError = TRUE,
           fileName = file.path(database$outputFolder, sprintf("ncsIndirectEffect_t%d_c%s_m%d.png", tc$targetId, tc$comparatorId, mediator$mediatorId))
         )
+        ease <- bind_cols(tc, mediator) %>%
+          mutate(easeMain = EmpiricalCalibration::computeExpectedAbsoluteSystematicError(nullMain)$ease,
+                 easeDirect = EmpiricalCalibration::computeExpectedAbsoluteSystematicError(nullDirect)$ease,
+                 easeIndirect = EmpiricalCalibration::computeExpectedAbsoluteSystematicError(nullIndirect)$ease) 
+        readr::write_csv(ease, file.path(database$outputFolder, sprintf("ease_t%d_c%s_m%d.png", tc$targetId, tc$comparatorId, mediator$mediatorId)))
         saveRDS(estimates, ncsFileName)
       }
     }
