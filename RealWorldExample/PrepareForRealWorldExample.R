@@ -12,7 +12,7 @@ cohorts <- tibble(
                16586, 
                16330,
                16853,
-               16991,
+               17003,
                2072,
                2087,
                17002),
@@ -42,7 +42,7 @@ comparator <- cohortDefinitionSet %>%
   filter(cohortId %in% c(16330)) %>%
   select(comparatorId = "cohortId", comparatorName = "cohortName")
 mediators <- cohortDefinitionSet %>%
-  filter(cohortId %in% c(16853, 16991)) %>%
+  filter(cohortId %in% c(16853, 17003)) %>%
   select(mediatorId = "cohortId", mediatorName = "cohortName")
 outcomes <- cohortDefinitionSet %>%
   filter(cohortId %in% c(2072, 2087, 17002)) %>%

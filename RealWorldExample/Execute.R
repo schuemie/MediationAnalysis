@@ -14,6 +14,7 @@ for (database in databases) {
     transmute(cohortId = conceptId,
               cohortName = conceptName,
               outcomeConceptId = conceptId)
+  hasBledCohorts <- readRDS("RealWorldExample/HasBledCohortDefinitionSet.rds")
   cohortTableNames <- getCohortTableNames(cohortTable = database$cohortTable)
   createCohortTables(connectionDetails = database$connectionDetails,
                      cohortDatabaseSchema = database$cohortDatabaseSchema,
@@ -30,6 +31,11 @@ for (database in databases) {
     cohortTable = database$cohortTable,
     negativeControlOutcomeCohortSet = negativeControls
   )
+  generateCohortSet(connectionDetails = database$connectionDetails,
+                    cdmDatabaseSchema = database$cdmDatabaseSchema,
+                    cohortDatabaseSchema = database$cohortDatabaseSchema,
+                    cohortTableNames = cohortTableNames,
+                    cohortDefinitionSet = hasBledCohorts)
   counts <- CohortGenerator::getCohortCounts(
     connectionDetails = database$connectionDetails,
     cohortDatabaseSchema = database$cohortDatabaseSchema,
@@ -95,10 +101,8 @@ for (database in databases) {
       attr(cmData, "metaData")$attrition <- bind_rows(attr(cmData, "metaData")$attrition,
                                                       counts)
       saveCohortMethodData(cmData, cmDataFileName)
-    } else {
-      cmData <- loadCohortMethodData(cmDataFileName)    
-    }
-    
+    } 
+    cmData <- loadCohortMethodData(cmDataFileName)   
     psFileName <- file.path(database$outputFolder, sprintf("ps_t%d_c%s.rds", tc$targetId, tc$comparatorId))
     if (!file.exists(psFileName)) {
       ps <- createPs(cmData,
