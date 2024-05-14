@@ -18,7 +18,7 @@
 # settings = createModelsettings()
 
 sampling <- "strata" # strata or person
-bootstrapType <- "percentile" # percentile or pivoted
+bootstrapType <- "percentile" #reduced bias-corrected, bias-corrected, percentile or pivoted
 
 #' Create model fitting settings
 #'
@@ -288,6 +288,7 @@ singleBootstrapSample <- function(dummy, x, y, stratumIds, uniqueStratumIds) {
   })
 }
 
+# mle = indirectLogHr
 computeIndirectEffectCi <- function(data, f, mle) {
   # Optimized for speed: call agreg.fit directly, which is order of magnitude faster than calling coxph:
   terms <- terms(f)
@@ -312,9 +313,22 @@ computeIndirectEffectCi <- function(data, f, mle) {
   }
   y <- Surv(data$tStart, data$tEnd, data$y)
   bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, stratumIds = stratumIds, uniqueStratumIds =uniqueStratumIds)  
-  ci <- quantile(bootstrap[1, ] - bootstrap[2, ], c(0.025, 0.975), na.rm = TRUE)
-  if (bootstrapType == "pivoted") {
-    ci <- c(2*mle - ci[2], 2*mle - ci[1])
+  if (bootstrapType == "bias-corrected" || bootstrapType == "reduced bias-corrected") {
+    indirectLogHrSample <- bootstrap[1, ] - bootstrap[2, ]
+    zAdj <- qnorm(mean(indirectLogHrSample < mle, na.rm = TRUE))
+    if (bootstrapType == "reduced bias-corrected") {
+      percentiles <- c(pnorm(zAdj + qnorm(0.025)),
+                       pnorm(zAdj + qnorm(0.975)))
+    } else {
+      percentiles <- c(pnorm(2*zAdj + qnorm(0.025)),
+                       pnorm(2*zAdj + qnorm(0.975)))
+    }
+    ci <- quantile(bootstrap[1, ] - bootstrap[2, ], percentiles, na.rm = TRUE)
+  } else {
+    ci <- quantile(bootstrap[1, ] - bootstrap[2, ], c(0.025, 0.975), na.rm = TRUE)
+    if (bootstrapType == "pivoted") {
+      ci <- c(2*mle - ci[2], 2*mle - ci[1])
+    }
   }
   return(ci)
 }

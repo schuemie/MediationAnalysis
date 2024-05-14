@@ -47,7 +47,7 @@ simulationSettings <- createAbstractSimulationSettings(
   mIntercept = log(0.01),
   yIntercept = log(0.1),
   mA = log(2),
-  yA = log(0.5),
+  yA = log(2),
   yM = log(2)
 )
 # modelSettings <- createModelsettings(psAdjustment = "none",
@@ -56,7 +56,7 @@ modelSettings <- createModelsettings()
 runSetOfSimulations(folder = folder, 
                     simulationSettingsList = list(simulationSettings), 
                     modelSettingsList = list(modelSettings),
-                    nSimulations = 100,
+                    nSimulations = 1000,
                     maxCores = 10) 
 results <- read.csv(file.path(folder, "Results.csv"))
 results
