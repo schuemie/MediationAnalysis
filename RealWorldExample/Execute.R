@@ -4,8 +4,8 @@ source("RealWorldExample/DatabaseDetails.R")
 library(CohortGenerator)
 library(dplyr)
 
-# database = databases[[2]]
-# databases = databases[2:5]
+# database = databases[[3]]
+# databases = databases[c(5,4)]
 for (database in databases) {
   message(sprintf("Creating cohorts for %s", database$databaseId))
   dir.create(database$outputFolder, showWarnings = FALSE, recursive = TRUE)
@@ -58,7 +58,7 @@ tcs <- tcmos %>%
   distinct(targetId, targetName, comparatorId, comparatorName)
 negativeControls <- readr::read_csv("RealWorldExample/NegativeControls.csv", show_col_types = FALSE)
 
-# database = databases[[2]]
+# database = databases[[1]]
 # i = 1
 for (database in databases) {
   message(sprintf("Computing diagnostics for %s", database$databaseId))
@@ -106,6 +106,8 @@ for (database in databases) {
       saveCohortMethodData(cmData, cmDataFileName)
     } 
     cmData <- loadCohortMethodData(cmDataFileName)   
+    # Magical code to fix mysterious error (cannot get a slot ("slots"))
+    attr(cmData, "metaData")$call <- NULL
     psFileName <- file.path(database$outputFolder, sprintf("ps_t%d_c%s.rds", tc$targetId, tc$comparatorId))
     if (!file.exists(psFileName)) {
       ps <- createPs(cmData,
@@ -196,7 +198,7 @@ for (database in databases) {
     # j = 1
     for (j in seq_len(nrow(mediators))) {
       mediator <- mediators[j, ]
-      mrsFileName <- file.path(database$outputFolder, sprintf("mrs_t%d_c%s_m%d.png", tc$targetId, tc$comparatorId, mediator$mediatorId))
+      mrsFileName <- file.path(database$outputFolder, sprintf("mrs_t%d_c%s_m%d.rds", tc$targetId, tc$comparatorId, mediator$mediatorId))
       if (!file.exists(mrsFileName)) {
         mrs <- createMediatorRiskScore(cohortMethodData = cmData, 
                                        mediatorId = mediator$mediatorId,
@@ -221,6 +223,56 @@ for (database in databases) {
         saveRDS(mrs, mrsFileName)
       } else {
         mrs <- readRDS(mrsFileName)
+      }
+      
+      outcomes <- tcmos %>%
+        filter(targetId == tc$targetId,
+               comparatorId == tc$comparatorId,
+               mediatorId == mediator$mediatorId)
+      # outcomeId = outcomes$outcomeId[1]
+      for (outcomeId in outcomes$outcomeId) {
+        table1FileName <- file.path(database$outputFolder, sprintf("table1_t%d_c%s_m%d_o%d.rds", tc$targetId, tc$comparatorId, mediator$mediatorId, outcomeId))
+        if (!file.exists(table1FileName)) {
+          studyPop <- createStudyPopulation(
+            cohortMethodData = cmData,
+            outcomeId = outcomeId,
+            restrictToCommonPeriod = TRUE,
+            removeSubjectsWithPriorOutcome = TRUE,
+            priorOutcomeLookback = 365,
+            removeDuplicateSubjects = "keep first",
+            riskWindowStart = 0,
+            startAnchor = "cohort start",
+            riskWindowEnd = 0,
+            endAnchor = "cohort end"
+          )
+          studyPop <- studyPop %>%
+            inner_join(mrs %>%
+                         select("rowId"), 
+                       by = join_by(rowId)) %>%
+            inner_join(ps %>%
+                         select("rowId", "propensityScore"), 
+                       by = join_by(rowId))
+          strataPop <- matchOnPs(studyPop, maxRatio = 100)
+          covariateData1 <- FeatureExtraction::filterByRowId(cmData,
+                                                             strataPop %>%
+                                                               filter(treatment == 1) %>%
+                                                               pull(rowId))
+          covariateData2 <- FeatureExtraction::filterByRowId(cmData,
+                                                             strataPop %>%
+                                                               filter(treatment == 0) %>%
+                                                               pull(rowId))
+          # FeatureExtraction::saveCovariateData(covariateData2, "d:/temp/covData2nonAgg.zip")
+          covariateData1 <- FeatureExtraction::aggregateCovariates(covariateData1)
+          covariateData2 <- FeatureExtraction::aggregateCovariates(covariateData2)
+          # FeatureExtraction::saveCovariateData(covariateData1, "d:/temp/covData1.zip")
+          # FeatureExtraction::saveCovariateData(covariateData2, "d:/temp/covData2.zip")
+          # covariateData1 <- FeatureExtraction::loadCovariateData("d:/temp/covData1.zip")
+          # covariateData2 <- FeatureExtraction::loadCovariateData("d:/temp/covData2.zip")
+          
+          table1 <- FeatureExtraction::createTable1(covariateData1 = covariateData1,
+                                                    covariateData2 = covariateData2)
+          saveRDS(table1, table1FileName)
+        } 
       }
     
       ncsFileName <- file.path(database$outputFolder, sprintf("ncs_t%d_c%s_m%d.rds", tc$targetId, tc$comparatorId, mediator$mediatorId))
@@ -304,10 +356,27 @@ for (database in databases) {
           mutate(easeMain = EmpiricalCalibration::computeExpectedAbsoluteSystematicError(nullMain)$ease,
                  easeDirect = EmpiricalCalibration::computeExpectedAbsoluteSystematicError(nullDirect)$ease,
                  easeIndirect = EmpiricalCalibration::computeExpectedAbsoluteSystematicError(nullIndirect)$ease) 
-        readr::write_csv(ease, file.path(database$outputFolder, sprintf("ease_t%d_c%s_m%d.png", tc$targetId, tc$comparatorId, mediator$mediatorId)))
+        readr::write_csv(ease, file.path(database$outputFolder, sprintf("ease_t%d_c%s_m%d.csv", tc$targetId, tc$comparatorId, mediator$mediatorId)))
         saveRDS(estimates, ncsFileName)
       }
     }
   }
 }
-    
+
+# Fix filenames ---------------------------------------------------------------
+for (database in databases) {
+  message(sprintf("Fixing filenames for %s", database$databaseId))
+  toFix <- list.files(database$outputFolder, "^mrs_t.*png$", full.names = TRUE)
+  if (length(toFix) > 0) {
+    newNames <- gsub(".png$", ".rds", toFix)
+    file.rename(toFix, newNames)
+  }
+}
+for (database in databases) {
+  message(sprintf("Fixing filenames for %s", database$databaseId))
+  toFix <- list.files(database$outputFolder, "^ease_t.*rds$", full.names = TRUE)
+  if (length(toFix) > 0) {
+    newNames <- gsub(".rds$", ".csv", toFix)
+    file.rename(toFix, newNames)
+  }
+}

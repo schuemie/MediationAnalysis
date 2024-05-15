@@ -30,14 +30,22 @@ This study will utilize novel advanced statistical techniques to model the media
 This study will employ a new-user comparative cohort design, comparing a target cohort (rivaroxaban or the entire class of DOACs) to a comparator cohort (warfarin). 
 Both target and cohort are defined as first exposure to drug of interest, requiring 365 days of prior observation. 
 Followup starts on the day of treatment initiation, and ends at end of continuous exposure (allowing for 30-day gaps) or occurrence of the outcome, whichever comes first. 
-A single mediator - major bleeding - is defined and included in the model. This table lists all the comparisons that will be made:
+A single mediator - major bleeding - is defined and included in the model. We evaluate 2 variants of this mediator, one only considering inpatient (IP) visitings, and one considering both IP and emergency room (ER) visits. This table lists all the comparisons that will be made:
 
-| Target      | Comparator | Mediator       | Outcome         |
-|:------------|:-----------|:---------------|:----------------|
-| Rivaroxaban | Warfarin   | Major bleeding | Acute MI        |
-| Rivaroxaban | Warfarin   | Major bleeding | Ischemic stroke |
-| DOACs       | Warfarin   | Major bleeding | Acute MI        |
-| DOACs       | Warfarin   | Major bleeding | Ischemic stroke |
+| Target      | Comparator | Mediator                | Outcome         |
+|:------------|:-----------|:------------------------|:----------------|
+| Rivaroxaban | Warfarin   | Major bleeding IP or ER | Acute MI        |
+| Rivaroxaban | Warfarin   | Major bleeding IP or ER | Ischemic stroke |
+| Rivaroxaban | Warfarin   | Major bleeding IP or ER | Composite       |
+| DOACs       | Warfarin   | Major bleeding IP or ER | Acute MI        |
+| DOACs       | Warfarin   | Major bleeding IP or ER | Ischemic stroke |
+| DOACs       | Warfarin   | Major bleeding IP or ER | Composite       |
+| Rivaroxaban | Warfarin   | Major bleeding IP       | Acute MI        |
+| Rivaroxaban | Warfarin   | Major bleeding IP       | Ischemic stroke |
+| Rivaroxaban | Warfarin   | Major bleeding IP       | Composite       |
+| DOACs       | Warfarin   | Major bleeding IP       | Acute MI        |
+| DOACs       | Warfarin   | Major bleeding IP       | Ischemic stroke |
+| DOACs       | Warfarin   | Major bleeding IP       | Composite       |
 
 The model is a Cox proportional hazards model, with the mediator as time-varying covariate. 
 Cohort definitions of the targets, comparator, mediator and outcomes are provided in Appendix A. 
@@ -107,8 +115,13 @@ printCohortDefinitionFromNameAndJson("Comparator: Warfarin", json)
 ```
 
 ```{r echo=FALSE, results="asis", warning=FALSE, message=FALSE}
-json <- cohortDefinitionSet$json[cohortDefinitionSet$cohortId == 16484]
-printCohortDefinitionFromNameAndJson("Mediator: Major bleeding", json)
+json <- cohortDefinitionSet$json[cohortDefinitionSet$cohortId == 17003]
+printCohortDefinitionFromNameAndJson("Mediator: Major bleeding IP", json)
+```
+
+```{r echo=FALSE, results="asis", warning=FALSE, message=FALSE}
+json <- cohortDefinitionSet$json[cohortDefinitionSet$cohortId == 16853]
+printCohortDefinitionFromNameAndJson("Mediator: Major bleeding IP or ER", json)
 ```
 
 ```{r echo=FALSE, results="asis", warning=FALSE, message=FALSE}
@@ -121,6 +134,11 @@ json <- cohortDefinitionSet$json[cohortDefinitionSet$cohortId == 2087]
 printCohortDefinitionFromNameAndJson("Outcome: Ischemic stroke", json)
 ```
 
+```{r echo=FALSE, results="asis", warning=FALSE, message=FALSE}
+json <- cohortDefinitionSet$json[cohortDefinitionSet$cohortId == 17002]
+printCohortDefinitionFromNameAndJson("Outcome: Composite", json)
+```
+
 # Appendix B: Negative controls
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 readr::read_csv(
@@ -131,3 +149,5 @@ readr::read_csv(
   select("Concept ID" = "conceptId", Name = "conceptName") %>%
   kable(linesep = "", booktabs = TRUE, longtable = TRUE)
 ```
+
+

@@ -1,0 +1,257 @@
+---
+title: "Supplement: Diagnostics"
+author: "Martijn Schuemie, Zhong Yuan, Elliot Barnathan, Jamie Weaver"
+date: "`r Sys.Date()`"
+output: 
+  bookdown::word_document2: 
+    toc: yes
+    number_sections: yes
+bibliography: Design.bib
+---
+
+```{r setup, include=FALSE,warning=FALSE}
+library(dplyr)
+library(knitr)
+# library(kableExtra)
+source("DatabaseDetails.R")
+tcmos <- readRDS("tcmos.rds") 
+tcs <- tcmos %>%
+  distinct(targetId, targetName, comparatorId, comparatorName)
+tcms <- tcmos %>%
+  distinct(targetId, targetName, comparatorId, comparatorName, mediatorId, mediatorName)
+```
+
+# Propensity score distribution and equipoise
+
+```{r echo=FALSE, warning=FALSE}
+equipoises <- list()
+for (database in databases) {
+  for (i in seq_len(nrow(tcs))) {
+    tc <- tcs[i, ] 
+    equipoise <- readRDS(file.path(database$outputFolder, sprintf("equipoise_t%d_c%d.rds", tc$targetId, tc$comparatorId)))
+    equipoises[[length(equipoises) + 1]] <- equipoise %>%
+      mutate(Database = database$databaseId,
+             equipoise = sprintf("%0.1f%%", 100 * equipoise)) %>%
+      select("Database", Target = "targetName", Comparator = "comparatorName", Equipoise = "equipoise")
+  }
+}
+equipoises <- bind_rows(equipoises) 
+kable(equipoises, booktabs = TRUE, linesep = "", caption = "Overview of empirical equipoise per database and comparison")  
+```
+
+```{r echo=FALSE, results="asis", warning=FALSE, message=FALSE}
+for (database in databases) {
+  rmd <- sprintf("### %s\n\n", database$databaseId)
+  for (i in seq_len(nrow(tcs))) {
+    tc <- tcs[i, ] 
+    rmd <- paste0(rmd, sprintf("![Propensity score distribution comparing %s to %s in %s.](%s/ps_t%d_c%d.png)\n\n",
+                               tc$targetName,
+                               tc$comparatorName,
+                               database$databaseId,
+                               database$outputFolder,
+                               tc$targetId,
+                               tc$comparatorId))
+  }
+  writeLines(rmd)
+  
+}
+```
+
+# Covariate balance
+
+```{r echo=FALSE, warning=FALSE}
+balances <- list()
+for (database in databases) {
+  for (i in seq_len(nrow(tcs))) {
+    tc <- tcs[i, ] 
+    balance <- readRDS(file.path(database$outputFolder, sprintf("balance_t%d_c%d.rds", tc$targetId, tc$comparatorId)))
+    balances[[length(balances) + 1]] <- tibble(
+      Database = database$databaseId,
+      Target = tc$targetName,
+      Comparator = tc$comparatorName,
+      'Number of covariates' = format(nrow(balance), big.mark = ","),
+      'Max ASDM' = sprintf("%0.2f", max(abs(balance$afterMatchingStdDiff), na.rm = TRUE))
+      )
+    
+    
+  }
+}
+balances <- bind_rows(balances) 
+kable(balances, booktabs = TRUE, linesep = "", caption = "Overview of balance per database and comparison")  
+```
+
+```{r echo=FALSE, results="asis", warning=FALSE, message=FALSE}
+for (database in databases) {
+  rmd <- sprintf("### %s\n\n", database$databaseId)
+  for (i in seq_len(nrow(tcs))) {
+    tc <- tcs[i, ] 
+    rmd <- paste0(rmd, sprintf("![Standardized difference of mean comparing %s to %s in %s.](%s/balanceScatterplot_t%d_c%d.png)\n\n",
+                               tc$targetName,
+                               tc$comparatorName,
+                               database$databaseId,
+                               database$outputFolder,
+                               tc$targetId,
+                               tc$comparatorId))
+  }
+  writeLines(rmd)
+  
+}
+```
+
+# Minimum detectable relative risk and follow-up time
+
+## Minimum detectable relative risk
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+mdrrs <- list()
+for (database in databases) {
+  for (i in seq_len(nrow(tcs))) {
+    tc <- tcs[i, ] 
+    mdrr <- readr::read_csv(file.path(database$outputFolder, sprintf("mdrr_t%d_c%d.csv", tc$targetId, tc$comparatorId)), show_col_types = FALSE)
+    mdrrs[[length(mdrrs) + 1]] <-mdrr %>%
+      mutate(databaseId = database$databaseId)
+  }
+}
+mdrrs <- bind_rows(mdrrs) 
+mdrrTable <- mdrrs %>%
+  mutate(targetPersons = format(targetPersons, big.mark = ","),
+         comparatorPersons = format(comparatorPersons, big.mark = ","),
+         totalOutcomes = format(totalOutcomes, big.mark = ","),
+         mdrr = sprintf("%0.2f", mdrr)) %>%
+  select(Database = "databaseId",
+         Target = "targetName",
+         Comparator = "comparatorName",
+         Outcome = "outcomeName",
+         'Target subjects' = "targetPersons",
+         'Comparator subjects' = "comparatorPersons",
+         'Total outcomes' = "totalOutcomes",
+         MDRR = mdrr)
+kable(mdrrTable, booktabs = TRUE, linesep = "", caption = "Overview of minimum detectable relative risk (MDRR) per database, comparison, and outcome.")  
+```
+
+## Follow-up time in the target cohort
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+followupTable <- mdrrs %>%
+  select(Database = "databaseId",
+         Target = "targetName",
+         Comparator = "comparatorName",
+         Outcome = "outcomeName",
+         'p10' = "p10FollowUp_Target",
+         'p25' = "p25FollowUp_Target",
+         'Median' = "medianFollowup_Target",
+         'p75' = "p75FollowUp_Target",
+         'p90' = "p90FollowUp_Target")
+kable(followupTable, booktabs = TRUE, linesep = "", caption = "Overview of follow-up time in days in the target cohort per database, comparison, and outcome.")  
+```
+
+## Follow-up time in the comparator cohort
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+followupTable <- mdrrs %>%
+  select(Database = "databaseId",
+         Target = "targetName",
+         Comparator = "comparatorName",
+         Outcome = "outcomeName",
+         'p10' = "p10FollowUp_Comparator",
+         'p25' = "p25FollowUp_Comparator",
+         'Median' = "medianFollowup_Comparator",
+         'p75' = "p75FollowUp_Comparator",
+         'p90' = "p90FollowUp_Comparator")
+kable(followupTable, booktabs = TRUE, linesep = "", caption = "Overview of follow-up time in days in the comparator cohort per database, comparison, and outcome.")  
+```
+
+# Mediator risk score distribution
+
+```{r echo=FALSE, results="asis", warning=FALSE, message=FALSE}
+for (database in databases) {
+  rmd <- sprintf("### %s\n\n", database$databaseId)
+  for (i in seq_len(nrow(tcms))) {
+    tcm <- tcms[i, ] 
+    rmd <- paste0(rmd, sprintf("![Mediator risk score by mediator status when comparing %s to %s using mediator %s in %s.](%s/mrsByMediator_t%d_c%d_m%d.png)\n\n",
+                               tcm$targetName,
+                               tcm$comparatorName,
+                               tcm$mediatorName,
+                               database$databaseId,
+                               database$outputFolder,
+                               tcm$targetId,
+                               tcm$comparatorId,
+                               tcm$mediatorId))
+    rmd <- paste0(rmd, sprintf("![Mediator risk score by exposure status when comparing %s to %s using mediator %s in %s.](%s/mrsByExposure_t%d_c%d_m%d.png)\n\n",
+                               tcm$targetName,
+                               tcm$comparatorName,
+                               tcm$mediatorName,
+                               database$databaseId,
+                               database$outputFolder,
+                               tcm$targetId,
+                               tcm$comparatorId,
+                               tcm$mediatorId))
+  }
+  writeLines(rmd)
+  
+}
+```
+
+# Negative controls
+
+```{r echo=FALSE, warning=FALSE}
+eases <- list()
+for (database in databases) {
+  for (i in seq_len(nrow(tcms))) {
+    tcm <- tcms[i, ] 
+    ease <- readr::read_csv(file.path(database$outputFolder, sprintf("ease_t%d_c%d_m%d.csv", tcm$targetId, tcm$comparatorId, tcm$mediatorId)), show_col_types = FALSE)
+    eases[[length(eases) + 1]] <- ease %>%
+  mutate(databaseId = database$databaseId,
+         easeMain = sprintf("%0.2f", easeMain),
+         easeDirect = sprintf("%0.2f", easeDirect),
+         easeIndirect = sprintf("%0.2f", easeIndirect)) %>%
+  select(Database = "databaseId",
+         Target = "targetName",
+         Comparator = "comparatorName",
+         Mediator = "mediatorName",
+         'EASE main' = "easeMain",
+         'EASE direct' = "easeDirect",
+         'EASE indirect' = "easeIndirect")
+  }
+}
+eases <- bind_rows(eases) 
+kable(eases, booktabs = TRUE, linesep = "", caption = "Expected Absolute Systematic Error (EASE) per database, comparison, and mediator.")  
+```
+
+```{r echo=FALSE, results="asis", warning=FALSE, message=FALSE}
+for (database in databases) {
+  rmd <- sprintf("### %s\n\n", database$databaseId)
+  for (i in seq_len(nrow(tcms))) {
+    tcm <- tcms[i, ] 
+    rmd <- paste0(rmd, sprintf("![Negative control estimates of the main effect comparing %s to %s using mediator %s in %s.](%s/ncsMainEffect_t%d_c%d_m%d.png)\n\n",
+                               tcm$targetName,
+                               tcm$comparatorName,
+                               tcm$mediatorName,
+                               database$databaseId,
+                               database$outputFolder,
+                               tcm$targetId,
+                               tcm$comparatorId,
+                               tcm$mediatorId))
+    rmd <- paste0(rmd, sprintf("![Negative control estimates of the direct effect comparing %s to %s using mediator %s in %s.](%s/ncsDirectEffect_t%d_c%d_m%d.png)\n\n",
+                               tcm$targetName,
+                               tcm$comparatorName,
+                               tcm$mediatorName,
+                               database$databaseId,
+                               database$outputFolder,
+                               tcm$targetId,
+                               tcm$comparatorId,
+                               tcm$mediatorId))
+    rmd <- paste0(rmd, sprintf("![Negative control estimates of the indirect effect comparing %s to %s using mediator %s in %s.](%s/ncsIndirectEffect_t%d_c%d_m%d.png)\n\n",
+                               tcm$targetName,
+                               tcm$comparatorName,
+                               tcm$mediatorName,
+                               database$databaseId,
+                               database$outputFolder,
+                               tcm$targetId,
+                               tcm$comparatorId,
+                               tcm$mediatorId))
+  }
+  writeLines(rmd)
+  
+}
+```
