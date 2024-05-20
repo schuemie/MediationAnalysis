@@ -10,7 +10,8 @@ getHasBledCovariateData <- function(connection,
                                     rowIdField = "row_id",
                                     aggregated,
                                     cohortIds,
-                                    covariateSettings) {
+                                    covariateSettings,
+                                    minCharacterizationMean) {
   message("Constructing HAS-BLED covariates")
   if (covariateSettings$useHasBled == FALSE) {
     return(NULL)
@@ -28,7 +29,7 @@ getHasBledCovariateData <- function(connection,
     SELECT DISTINCT cohort.@row_id_field AS row_id,
       has_bled_cohort.cohort_definition_id
     FROM @cohort_table cohort
-    INNER JOIN @cohort_table has_bled_cohort
+    INNER JOIN @has_bled_cohort_database_schema.@has_bled_cohort_table has_bled_cohort
       ON cohort.subject_id = has_bled_cohort.subject_id
         AND cohort.cohort_start_date >= has_bled_cohort.cohort_start_date
     WHERE has_bled_cohort.cohort_definition_id IN (@has_bled_cohort_ids)  
@@ -44,6 +45,8 @@ getHasBledCovariateData <- function(connection,
     cohort_table = cohortTable,
     row_id_field = rowIdField,
     cohort_ids = cohortIds,
+    has_bled_cohort_database_schema = covariateSettings$hasBledCohortDatabaseSchema,
+    has_bled_cohort_table = covariateSettings$hasBledCohortTable,
     has_bled_cohort_ids = hasBledCohorts$cohortId,
     snakeCaseToCamelCase = TRUE
   )
@@ -106,8 +109,12 @@ getHasBledCovariateData <- function(connection,
   return(result)
 }
 
-createHasBledCovariateSettings <- function(useHasBled = TRUE) {
-  covariateSettings <- list(useHasBled = useHasBled)
+createHasBledCovariateSettings <- function(useHasBled = TRUE,
+                                           hasBledCohortDatabaseSchema,
+                                           hasBledCohortTable) {
+  covariateSettings <- list(useHasBled = useHasBled,
+                            hasBledCohortDatabaseSchema = hasBledCohortDatabaseSchema,
+                            hasBledCohortTable = hasBledCohortTable)
   attr(covariateSettings, "fun") <- "getHasBledCovariateData"
   class(covariateSettings) <- "covariateSettings"
   return(covariateSettings)

@@ -4,7 +4,7 @@ source("RealWorldExample/DatabaseDetails.R")
 library(CohortGenerator)
 library(dplyr)
 
-# database = databases[[3]]
+# database = databases[[1]]
 # databases = databases[c(5,4)]
 for (database in databases) {
   message(sprintf("Creating cohorts for %s", database$databaseId))
@@ -59,7 +59,7 @@ tcs <- tcmos %>%
 negativeControls <- readr::read_csv("RealWorldExample/NegativeControls.csv", show_col_types = FALSE)
 
 # database = databases[[1]]
-# i = 1
+# i = 2
 for (database in databases) {
   message(sprintf("Computing diagnostics for %s", database$databaseId))
   for (i in seq_len(nrow(tcs))) {
@@ -72,7 +72,9 @@ for (database in databases) {
         excludedCovariateConceptIds = c(1592988, 40228152, 40241331, 43013024, 45775372, 45892847, 1310149),
         addDescendantsToExclude = TRUE
       )
-      hasBledCovariateSettings <- createHasBledCovariateSettings()
+      hasBledCovariateSettings <- createHasBledCovariateSettings(
+        hasBledCohortDatabaseSchema = database$cohortDatabaseSchema,
+        hasBledCohortTable = database$cohortTable)
       covariateSettings <- list(defaultCovariateSettings, hasBledCovariateSettings) 
       cmData <- getDbCohortMethodData(
         connectionDetails = database$connectionDetails,
@@ -225,55 +227,55 @@ for (database in databases) {
         mrs <- readRDS(mrsFileName)
       }
       
-      outcomes <- tcmos %>%
-        filter(targetId == tc$targetId,
-               comparatorId == tc$comparatorId,
-               mediatorId == mediator$mediatorId)
-      # outcomeId = outcomes$outcomeId[1]
-      for (outcomeId in outcomes$outcomeId) {
-        table1FileName <- file.path(database$outputFolder, sprintf("table1_t%d_c%s_m%d_o%d.rds", tc$targetId, tc$comparatorId, mediator$mediatorId, outcomeId))
-        if (!file.exists(table1FileName)) {
-          studyPop <- createStudyPopulation(
-            cohortMethodData = cmData,
-            outcomeId = outcomeId,
-            restrictToCommonPeriod = TRUE,
-            removeSubjectsWithPriorOutcome = TRUE,
-            priorOutcomeLookback = 365,
-            removeDuplicateSubjects = "keep first",
-            riskWindowStart = 0,
-            startAnchor = "cohort start",
-            riskWindowEnd = 0,
-            endAnchor = "cohort end"
-          )
-          studyPop <- studyPop %>%
-            inner_join(mrs %>%
-                         select("rowId"), 
-                       by = join_by(rowId)) %>%
-            inner_join(ps %>%
-                         select("rowId", "propensityScore"), 
-                       by = join_by(rowId))
-          strataPop <- matchOnPs(studyPop, maxRatio = 100)
-          covariateData1 <- FeatureExtraction::filterByRowId(cmData,
-                                                             strataPop %>%
-                                                               filter(treatment == 1) %>%
-                                                               pull(rowId))
-          covariateData2 <- FeatureExtraction::filterByRowId(cmData,
-                                                             strataPop %>%
-                                                               filter(treatment == 0) %>%
-                                                               pull(rowId))
-          # FeatureExtraction::saveCovariateData(covariateData2, "d:/temp/covData2nonAgg.zip")
-          covariateData1 <- FeatureExtraction::aggregateCovariates(covariateData1)
-          covariateData2 <- FeatureExtraction::aggregateCovariates(covariateData2)
-          # FeatureExtraction::saveCovariateData(covariateData1, "d:/temp/covData1.zip")
-          # FeatureExtraction::saveCovariateData(covariateData2, "d:/temp/covData2.zip")
-          # covariateData1 <- FeatureExtraction::loadCovariateData("d:/temp/covData1.zip")
-          # covariateData2 <- FeatureExtraction::loadCovariateData("d:/temp/covData2.zip")
-          
-          table1 <- FeatureExtraction::createTable1(covariateData1 = covariateData1,
-                                                    covariateData2 = covariateData2)
-          saveRDS(table1, table1FileName)
-        } 
-      }
+      # outcomes <- tcmos %>%
+      #   filter(targetId == tc$targetId,
+      #          comparatorId == tc$comparatorId,
+      #          mediatorId == mediator$mediatorId)
+      # # outcomeId = outcomes$outcomeId[1]
+      # for (outcomeId in outcomes$outcomeId) {
+      #   table1FileName <- file.path(database$outputFolder, sprintf("table1_t%d_c%s_m%d_o%d.rds", tc$targetId, tc$comparatorId, mediator$mediatorId, outcomeId))
+      #   if (!file.exists(table1FileName)) {
+      #     studyPop <- createStudyPopulation(
+      #       cohortMethodData = cmData,
+      #       outcomeId = outcomeId,
+      #       restrictToCommonPeriod = TRUE,
+      #       removeSubjectsWithPriorOutcome = TRUE,
+      #       priorOutcomeLookback = 365,
+      #       removeDuplicateSubjects = "keep first",
+      #       riskWindowStart = 0,
+      #       startAnchor = "cohort start",
+      #       riskWindowEnd = 0,
+      #       endAnchor = "cohort end"
+      #     )
+      #     studyPop <- studyPop %>%
+      #       inner_join(mrs %>%
+      #                    select("rowId"),
+      #                  by = join_by(rowId)) %>%
+      #       inner_join(ps %>%
+      #                    select("rowId", "propensityScore"),
+      #                  by = join_by(rowId))
+      #     strataPop <- matchOnPs(studyPop, maxRatio = 100)
+      #     covariateData1 <- FeatureExtraction::filterByRowId(cmData,
+      #                                                        strataPop %>%
+      #                                                          filter(treatment == 1) %>%
+      #                                                          pull(rowId))
+      #     covariateData2 <- FeatureExtraction::filterByRowId(cmData,
+      #                                                        strataPop %>%
+      #                                                          filter(treatment == 0) %>%
+      #                                                          pull(rowId))
+      #     covariateData1 <- FeatureExtraction::aggregateCovariates(covariateData1)
+      #     covariateData2 <- FeatureExtraction::aggregateCovariates(covariateData2)
+      #     specs <- FeatureExtraction::getDefaultTable1Specifications() %>%
+      #       bind_rows(tibble(label = "HAS-BLED",
+      #                        analysisId = 999,
+      #                        covariateIds = "999"))
+      #     
+      #     table1 <- FeatureExtraction::createTable1(covariateData1 = covariateData1,
+      #                                               covariateData2 = covariateData2,
+      #                                               specifications = specs)
+      #     saveRDS(table1, table1FileName)
+      #   }
+      # }
     
       ncsFileName <- file.path(database$outputFolder, sprintf("ncs_t%d_c%s_m%d.rds", tc$targetId, tc$comparatorId, mediator$mediatorId))
 
@@ -374,9 +376,21 @@ for (database in databases) {
 }
 for (database in databases) {
   message(sprintf("Fixing filenames for %s", database$databaseId))
-  toFix <- list.files(database$outputFolder, "^ease_t.*rds$", full.names = TRUE)
+  toFix <- list.files(database$outputFolder, "^ease_t.*png$", full.names = TRUE)
   if (length(toFix) > 0) {
-    newNames <- gsub(".rds$", ".csv", toFix)
+    newNames <- gsub(".png", ".csv", toFix)
     file.rename(toFix, newNames)
   }
 }
+
+# Back up old cmData files before refetching:
+for (database in databases) {
+  message(sprintf("Fixing filenames for %s", database$databaseId))
+  toFix <- list.files(database$outputFolder, "^cmData_t.*zip$", full.names = TRUE)
+  if (length(toFix) > 0) {
+    newNames <- paste0(toFix, ".bak")
+    file.rename(toFix, newNames)
+  }
+}
+
+
