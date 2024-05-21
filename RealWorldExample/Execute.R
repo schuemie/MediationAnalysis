@@ -276,9 +276,9 @@ for (database in databases) {
       #     saveRDS(table1, table1FileName)
       #   }
       # }
-    
+      
       ncsFileName <- file.path(database$outputFolder, sprintf("ncs_t%d_c%s_m%d.rds", tc$targetId, tc$comparatorId, mediator$mediatorId))
-
+      
       if (!file.exists(ncsFileName)) {
         estimates <- list()
         negativeControls <- readr::read_csv("RealWorldExample/NegativeControls.csv", show_col_types = FALSE)
@@ -393,4 +393,205 @@ for (database in databases) {
   }
 }
 
+# Part 3: Generate results for outcomes of interest ------------------------------------
+library(CohortMethod)
+library(MediationAnalysis)
+library(tidyr)
+source("RealWorldExample/HasBled/HasBledCovariateBuilder.R")
+tcmos <- readRDS("RealWorldExample/tcmos.rds") 
+tcs <- tcmos %>%
+  distinct(targetId, targetName, comparatorId, comparatorName)
+negativeControls <- readr::read_csv("RealWorldExample/NegativeControls.csv", show_col_types = FALSE)
 
+# database = databases[[1]]
+# i = 1
+for (database in databases) {
+  message(sprintf("Computing results for %s", database$databaseId))
+  for (i in seq_len(nrow(tcs))) {
+    tc <- tcs[i, ]
+    cmDataFileName <- file.path(database$outputFolder, sprintf("cmData_t%d_c%s.zip", tc$targetId, tc$comparatorId))
+    cmData <- loadCohortMethodData(cmDataFileName)   
+    # Magical code to fix mysterious error (cannot get a slot ("slots"))
+    attr(cmData, "metaData")$call <- NULL
+    psFileName <- file.path(database$outputFolder, sprintf("ps_t%d_c%s.rds", tc$targetId, tc$comparatorId))
+    ps <- readRDS(psFileName)
+    mediators <- tcmos %>%
+      inner_join(tc, by = join_by(targetId, targetName, comparatorId, comparatorName)) %>%
+      distinct(mediatorId, mediatorName)
+    # j = 1
+    for (j in seq_len(nrow(mediators))) {
+      mediator <- mediators[j, ]
+      mrsFileName <- file.path(database$outputFolder, sprintf("mrs_t%d_c%s_m%d.rds", tc$targetId, tc$comparatorId, mediator$mediatorId))
+      mrs <- readRDS(mrsFileName)
+      ncsFileName <- file.path(database$outputFolder, sprintf("ncs_t%d_c%s_m%d.rds", tc$targetId, tc$comparatorId, mediator$mediatorId))
+      ncEstimates <- readRDS(ncsFileName)
+      hoisFileName <- file.path(database$outputFolder, sprintf("hois_t%d_c%s_m%d.rds", tc$targetId, tc$comparatorId, mediator$mediatorId))
+      if (!file.exists(hoisFileName)) {
+        outcomes <- tcmos %>%
+          filter(targetId == tc$targetId,
+                 comparatorId == tc$comparatorId,
+                 mediatorId == mediator$mediatorId)
+        estimates <- list()
+        # k = 1
+        for (k in seq_len(nrow(outcomes))) {
+          outcome = outcomes[k, ]
+          studyPop <- createStudyPopulation(
+            cohortMethodData = cmData,
+            outcomeId = outcome$outcomeId,
+            restrictToCommonPeriod = TRUE,
+            removeSubjectsWithPriorOutcome = TRUE,
+            priorOutcomeLookback = 365,
+            removeDuplicateSubjects = "keep first",
+            riskWindowStart = 0,
+            startAnchor = "cohort start",
+            riskWindowEnd = 0,
+            endAnchor = "cohort end"
+          )
+          model <- fitMediatorModel(
+            studyPopulation = studyPop,
+            ps = ps,
+            mrs = mrs,
+            psAdjustment = "matching",
+            mrsAdjustment = "model",
+            mediatorType = "time-to-event")
+          model <- model %>%
+            mutate(outcomeId = outcome$outcomeId,
+                   outcomeName = outcome$outcomeName)
+          estimates[[k]] <- model
+        }
+        estimates <- bind_rows(estimates)
+        set.seed(123) # Make MCMC reproducible
+        nullMain <- EmpiricalCalibration::fitMcmcNull(
+          logRr = ncEstimates$mainLogHr,
+          seLogRr = ncEstimates$mainSeLogRr
+        )
+        nullDirect <- EmpiricalCalibration::fitMcmcNull(
+          logRr = ncEstimates$directLogHr,
+          seLogRr = ncEstimates$directSeLogRr
+        )
+        nullIndirect <- EmpiricalCalibration::fitMcmcNull(
+          logRr = ncEstimates$indirectLogHr,
+          seLogRr = ncEstimates$indirectSeLogRr
+        )
+        estimates <- estimates %>%
+          mutate(mainSeLogRr = (mainLogUb - mainLogLb) / (2*qnorm(0.975)),
+                 indirectSeLogRr = (indirectLogUb - indirectLogLb ) / (2*qnorm(0.975)),
+                 directSeLogRr = (directLogUb - directLogLb ) / (2*qnorm(0.975)))
+        mainCalibratedP <- EmpiricalCalibration::calibrateP(nullMain, estimates$mainLogHr, estimates$mainSeLogRr)
+        indirectCalibratedP <- EmpiricalCalibration::calibrateP(nullIndirect, estimates$indirectLogHr, estimates$indirectSeLogRr)
+        directCalibratedP <- EmpiricalCalibration::calibrateP(nullDirect, estimates$directLogHr, estimates$directSeLogRr)
+        mainCalibratedCi <- EmpiricalCalibration::calibrateConfidenceInterval(estimates$mainLogHr, estimates$mainSeLogRr, EmpiricalCalibration::convertNullToErrorModel(nullMain))
+        indirectCalibratedCi <- EmpiricalCalibration::calibrateConfidenceInterval(estimates$indirectLogHr, estimates$indirectSeLogRr, EmpiricalCalibration::convertNullToErrorModel(nullIndirect))
+        directCalibratedCi <- EmpiricalCalibration::calibrateConfidenceInterval(estimates$directLogHr, estimates$directSeLogRr, EmpiricalCalibration::convertNullToErrorModel(nullDirect))
+        estimates <- estimates %>%
+          mutate(mainCalibratedHr = exp(mainCalibratedCi$logRr),
+                 mainCalibratedLb = exp(mainCalibratedCi$logLb95Rr),
+                 mainCalibratedUb = exp(mainCalibratedCi$logUb95Rr),
+                 mainCalibratedP = !!mainCalibratedP$p,
+                 indirectCalibratedHr = exp(indirectCalibratedCi$logRr),
+                 indirectCalibratedLb = exp(indirectCalibratedCi$logLb95Rr),
+                 indirectCalibratedUb = exp(indirectCalibratedCi$logUb95Rr),
+                 indirectCalibratedP =!!indirectCalibratedP$p,
+                 directCalibratedHr = exp(directCalibratedCi$logRr),
+                 directCalibratedLb = exp(directCalibratedCi$logLb95Rr),
+                 directCalibratedUb = exp(directCalibratedCi$logUb95Rr),
+                 directCalibratedP = !!directCalibratedP$p)
+        saveRDS(estimates, hoisFileName)
+      }
+    }
+  }
+}
+
+# Part 4: Generate forest plots ------------------------------------------------
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+tcmos <- readRDS("RealWorldExample/tcmos.rds") 
+tcms <- tcmos %>%
+  distinct(targetId, 
+           targetName,
+           comparatorId,
+           comparatorName,
+           mediatorId,
+           mediatorName)
+# database = databases[[1]]
+estimates <- list()
+for (database in databases) {
+  for (i in seq_len(nrow(tcms))) {
+    tcm <- tcms[i, ]
+    hoisFileName <- file.path(database$outputFolder, sprintf("hois_t%d_c%s_m%d.rds", tcm$targetId, tcm$comparatorId, tcm$mediatorId))
+    temp <- readRDS(hoisFileName)
+    temp <- temp %>%
+      bind_cols(tcm) %>%
+      mutate(database = database$databaseId)
+    estimates[[length(estimates) + 1]] <- temp
+  }
+}
+estimates <- bind_rows(estimates)
+
+# i = 1
+for (i in seq_len(nrow(tcmos))) {
+  tcmo <- tcmos[i, ]
+  plotFileName <- file.path(rootFolder, sprintf("hr_t%d_c%d_m%d_o%d.png",
+                                                tcmo$targetId,
+                                                tcmo$comparatorId,
+                                                tcmo$mediatorId,
+                                                tcmo$outcomeId))
+  data <- estimates %>%
+    inner_join(tcmo, by = join_by(outcomeId, outcomeName, targetId, targetName, comparatorId, comparatorName, mediatorId, mediatorName))
+  data <- bind_rows(
+    data %>%
+      transmute(estimand = "Main effect",
+                hr = mainCalibratedHr,
+                lb = mainCalibratedLb,
+                ub = mainCalibratedUb,
+                database = database),
+    data %>%
+      transmute(estimand = "Direct effect",
+                hr = directCalibratedHr,
+                lb = directCalibratedLb,
+                ub = directCalibratedUb,
+                database = database),
+    data %>%
+      transmute(estimand = "Indirect effect",
+                hr = indirectCalibratedHr,
+                lb = indirectCalibratedLb,
+                ub = indirectCalibratedUb,
+                database = database)
+  )
+  data$database <- sprintf("%s    %0.2f (%0.2f-%0.2f)",
+                           data$database,
+                           data$hr,
+                           data$lb,
+                           data$ub)
+  data$estimand <- factor(data$estimand, levels = c("Main effect", "Direct effect", "Indirect effect"))
+  data$database <- factor(data$database, levels = rev(sort(unique(data$database))))
+  title <- sprintf("%s vs %s for %s\nMediator: %s",
+                   tcmo$targetName,
+                   tcmo$comparatorName,
+                   tcmo$outcomeName,
+                   tcmo$mediatorName)
+  breaks <- c(0.1, 0.25, 0.5, 1, 2, 4, 6, 8, 10)
+  plot <- ggplot(data, aes(x = hr, y = database)) +
+    geom_vline(xintercept = breaks, colour = "#AAAAAA", lty = 1, size = 0.2) +
+    geom_vline(xintercept = 1, size = 0.5) +
+    geom_point(size = 3) +
+    geom_errorbarh(aes(xmin = lb, xmax = ub), height = 0.15) +
+    scale_x_log10("Hazard Ratio", breaks = breaks) +
+    coord_cartesian(xlim = c(0.4, 2.5)) +
+    facet_grid(estimand~., scales = "free_y") +
+    ggtitle(title) +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.border = element_blank(),
+      panel.background = element_blank(),
+      strip.background = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks = element_line(colour = "white"),
+      plot.margin = grid::unit(c(0, 0, 0.1, 0), "lines"),
+      plot.title = element_text(hjust = 0.5)
+    )
+  plot
+  ggsave(
+}
