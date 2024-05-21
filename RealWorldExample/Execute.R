@@ -575,7 +575,7 @@ for (i in seq_len(nrow(tcmos))) {
   plot <- ggplot(data, aes(x = hr, y = database)) +
     geom_vline(xintercept = breaks, colour = "#AAAAAA", lty = 1, size = 0.2) +
     geom_vline(xintercept = 1, size = 0.5) +
-    geom_point(size = 3) +
+    geom_point(size = 3, shape = 18) +
     geom_errorbarh(aes(xmin = lb, xmax = ub), height = 0.15) +
     scale_x_log10("Hazard Ratio", breaks = breaks) +
     coord_cartesian(xlim = c(0.4, 2.5)) +
@@ -590,8 +590,8 @@ for (i in seq_len(nrow(tcmos))) {
       axis.title.y = element_blank(),
       axis.ticks = element_line(colour = "white"),
       plot.margin = grid::unit(c(0, 0, 0.1, 0), "lines"),
-      plot.title = element_text(hjust = 0.5)
+      plot.title = element_text(size = 12, hjust = 0.5)
     )
   plot
-  ggsave(
+  ggsave(plotFileName, plot, width = 5, height = 3.5, dpi = 200)
 }
