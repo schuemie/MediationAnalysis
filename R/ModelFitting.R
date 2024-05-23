@@ -148,16 +148,6 @@ fitModel <- function(data, settings) {
       CohortMethod::matchOnPs(maxRatio = 100) %>%
       select(-"propensityScore", -"treatment", -"rowId")
     f <- update(f, ~ . + strata(stratumId))
-    
-    if (sampling == "strata") {
-      nonInformativeStratumIds <- data %>%
-        group_by(.data$stratumId) %>%
-        summarise(total = sum(.data$y)) %>%
-        filter(.data$total == 0) %>%
-        pull(.data$stratumId)
-      data <- data %>%
-        filter(!.data$stratumId %in% nonInformativeStratumIds)
-    }
   } else if (settings$psAdjustment == "model") {
     f <- update(f, ~ . + ns(ps, 5))
   } else if (settings$psAdjustment == "covariates") {
@@ -202,10 +192,21 @@ fitModel <- function(data, settings) {
   # Cleanup: remove (near) zero-length intervals:
   data <- data %>%
     filter(.data$tEnd - .data$tStart > 0.0001)
+  if (settings$psAdjustment == "matching" && sampling == "strata") {
+    nonInformativeStratumIds <- data %>%
+      group_by(.data$stratumId) %>%
+      summarise(total = sum(.data$y)) %>%
+      filter(.data$total == 0) %>%
+      pull(.data$stratumId)
+    filteredData <- data %>%
+      filter(!.data$stratumId %in% nonInformativeStratumIds)
+  } else {
+    filteredData <- data 
+  }
   
   # With mediator:
   control <- coxph.control(iter.max = 1000)
-  fit1 <- tryCatch(coxph(update(f, ~ . + m), data = data, control = control), error = function(e) "Error")
+  fit1 <- tryCatch(coxph(update(f, ~ . + m), data = filteredData, control = control), error = function(e) "Error")
   if (is.character(fit1) || fit1$iter == 1000) {
     directCi <- c(NA, NA)
     directLogHr <- NA 
@@ -219,7 +220,7 @@ fitModel <- function(data, settings) {
   }
   
   # Without mediator:
-  fit2 <- tryCatch(coxph(f, data = data, control = control), error = function(e) "Error")
+  fit2 <- tryCatch(coxph(f, data = filteredData, control = control), error = function(e) "Error")
   if (is.character(fit2) || fit2$iter == 1000) {
     mainCi <- c(NA, NA)
     mainLogHr <- NA 
@@ -235,7 +236,7 @@ fitModel <- function(data, settings) {
   } else if (indirectLogHr == 0) {
     indirectCi <- c(0, 0)
   } else {
-    indirectCi <- computeIndirectEffectCi(data, f, indirectLogHr)
+    indirectCi <- computeIndirectEffectCi(filteredData, f, indirectLogHr)
   }
   result <- tibble(mainLogHr = mainLogHr,
                    mainLogLb = mainCi[1],
@@ -249,7 +250,15 @@ fitModel <- function(data, settings) {
                    indirectLogLb = indirectCi[1],
                    indirectLogUb = indirectCi[2],
                    trueMainHr = data$hrMain[1],
-                   trueIndirectHr = data$hrIndirect[1])
+                   trueIndirectHr = data$hrIndirect[1],
+                   targetSubjects = sum(data$a),
+                   comparatorSubjects = sum(!data$a),
+                   targetMediators = sum(data$m[data$a]),
+                   comparatorMediators = sum(data$m[!data$a]),
+                   targetOutcomes = sum(data$y[data$a]),
+                   comparatorOutcomes = sum(data$y[!data$a]),
+                   targetMediatorOutcomes = sum(data$y[data$a & data$m]),
+                   comparatorMediatorOutcomes = sum(data$y[!data$a & data$m]))
   return(result)
 }
 

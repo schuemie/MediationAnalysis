@@ -402,7 +402,8 @@ tcmos <- readRDS("RealWorldExample/tcmos.rds")
 tcs <- tcmos %>%
   distinct(targetId, targetName, comparatorId, comparatorName)
 negativeControls <- readr::read_csv("RealWorldExample/NegativeControls.csv", show_col_types = FALSE)
-
+table1Specs <- getDefaultCmTable1Specifications() %>%
+  bind_rows(tibble(label = "Mean score", analysisId = 999, covariateId = "999"))
 # database = databases[[1]]
 # i = 1
 for (database in databases) {
@@ -426,7 +427,8 @@ for (database in databases) {
       ncsFileName <- file.path(database$outputFolder, sprintf("ncs_t%d_c%s_m%d.rds", tc$targetId, tc$comparatorId, mediator$mediatorId))
       ncEstimates <- readRDS(ncsFileName)
       hoisFileName <- file.path(database$outputFolder, sprintf("hois_t%d_c%s_m%d.rds", tc$targetId, tc$comparatorId, mediator$mediatorId))
-      if (!file.exists(hoisFileName)) {
+      # if (!file.exists(hoisFileName)) {
+      if (TRUE) {
         outcomes <- tcmos %>%
           filter(targetId == tc$targetId,
                  comparatorId == tc$comparatorId,
@@ -447,6 +449,33 @@ for (database in databases) {
             riskWindowEnd = 0,
             endAnchor = "cohort end"
           )
+          table1FileName <- file.path(rootFolder, sprintf("Table1_t%d_c%s_m%d_o%d_%s.csv", tc$targetId, tc$comparatorId, mediator$mediatorId, outcome$outcomeId, database$databaseId))
+          if (!file.exists(table1FileName)) {
+            strataPop <- matchOnPs(inner_join(studyPop, select(ps, "rowId", "propensityScore"), by = join_by(rowId)), maxRatio = 100)
+            balance <- computeCovariateBalance(
+              population = strataPop,
+              cohortMethodData = cmData,
+              covariateFilter = table1Specs
+            )
+            cohorts <- cmData$cohorts %>%
+              collect()
+            table1 <- createCmTable1(balance, table1Specs)
+            table1 <- rbind(
+              table1[1, ],
+              c("", 
+                paste0("n=", format(sum(cohorts$treatment), big.mark = ",")), 
+                paste0("n=", format(sum(!cohorts$treatment), big.mark = ",")), 
+                "", 
+                paste0("n=", format(sum(strataPop$treatment), big.mark = ",")), 
+                paste0("n=", format(sum(!strataPop$treatment), big.mark = ",")), 
+                ""),
+              table1[2:nrow(table1), ]
+            )
+            table1[nrow(table1), c(2, 3, 5, 6)] <- format(as.numeric(table1[nrow(table1), c(2, 3, 5, 6)]) / 100, digits = 2)
+            table1[nrow(table1), 1] <- "HAS-BLED"
+            readr::write_csv(table1, table1FileName)
+          }
+          set.seed(123) # Make Bootstrap reproducible
           model <- fitMediatorModel(
             studyPopulation = studyPop,
             ps = ps,
@@ -529,6 +558,7 @@ for (database in databases) {
 }
 estimates <- bind_rows(estimates)
 
+# Forest plot
 # i = 1
 for (i in seq_len(nrow(tcmos))) {
   tcmo <- tcmos[i, ]
@@ -595,3 +625,20 @@ for (i in seq_len(nrow(tcmos))) {
   plot
   ggsave(plotFileName, plot, width = 5, height = 3.5, dpi = 200)
 }
+
+# Table of counts
+table <- estimates %>%
+  select(Target = "targetName",
+         Comparator ="comparatorName",
+         Mediator = "mediatorName",
+         Outcome = "outcomeName",
+         Database = "database",
+         "targetSubjects",
+         "comparatorSubjects",
+         "targetMediators",
+         "comparatorMediators",
+         "targetOutcomes",
+         "comparatorOutcomes",
+         "targetMediatorOutcomes",
+         "comparatorMediatorOutcomes")
+readr::write_csv(table, file.path(rootFolder, "Counts.csv"))
