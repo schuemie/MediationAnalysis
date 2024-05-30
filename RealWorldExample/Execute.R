@@ -642,3 +642,30 @@ table <- estimates %>%
          "targetMediatorOutcomes",
          "comparatorMediatorOutcomes")
 readr::write_csv(table, file.path(rootFolder, "Counts.csv"))
+
+# Tables for AHA abstract:
+filteredEstimates <- estimates %>%
+  filter(mediatorId == 17003, targetId == 16586)
+
+hrTable <- filteredEstimates %>%
+  mutate(hrMain = sprintf("%0.2f (%0.2f - %0.2f)", exp(mainLogHr), exp(mainLogLb), exp(mainLogUb)),
+         hrIndirect = sprintf("%0.2f (%0.2f - %0.2f)", exp(indirectLogHr), exp(indirectLogLb), exp(indirectLogUb))) %>%
+  select("database", "outcomeName", "hrMain", "hrIndirect") %>%
+  pivot_wider(names_from = "outcomeName", values_from = c("hrMain", "hrIndirect"), names_sort = TRUE) %>%
+  arrange("database")
+hrTable
+
+
+countTable <- filteredEstimates %>%
+  group_by(outcomeName) %>%
+  summarise(outcomes = format(sum(targetOutcomes + comparatorOutcomes), big.mark = ",", trim = TRUE),
+            mediators = format(sum(targetMediators + comparatorMediators), big.mark = ",", trim = TRUE),
+            mediatorOutcomes = format(sum(targetMediatorOutcomes + comparatorMediatorOutcomes), big.mark = ",", trim = TRUE)) %>%
+  t()
+countTable <- cbind(countTable, rownames(countTable))
+colnames(countTable) <- c(paste0("hrMain_", countTable[1, seq_len(ncol(countTable) -1)]), "database")
+countTable <- as_tibble(countTable)
+
+
+combinedTable <- countTable %>% 
+  rename
