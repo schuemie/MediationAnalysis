@@ -102,16 +102,20 @@ evaluateSingleResult <- function(simulationSettings, modelSettings, estimates) {
                                 log(estimates$trueMainHr) <= estimates$mainLogUb),
     coverageIndirectEffect = mean(log(estimates$trueIndirectHr) >= estimates$indirectLogLb &
                                     log(estimates$trueIndirectHr) <= estimates$indirectLogUb),
+    coverageMediatedProportion = mean(estimates$trueMediatedProportion >= estimates$mediatedProportionLb &
+                                    estimates$trueMediatedProportion <= estimates$mediatedProportionUb),
     aboveIndirectEffect = mean(log(estimates$trueIndirectHr) >= estimates$indirectLogUb),
     belowIndirectEffect = mean(log(estimates$trueIndirectHr) <= estimates$indirectLogLb),
     biasDirectEffect = mean(simulationSettings$yA - estimates$directLogHr),
     biasMediatorEffect = mean(simulationSettings$yA - estimates$mainLogHr),
     biasMainEffect = mean(log(estimates$trueMainHr) - estimates$mainLogHr),
     biasIndirectEffect = mean(log(estimates$trueIndirectHr) - estimates$indirectLogHr),
+    biasMediatedProportion = mean(estimates$trueMediatedProportion - estimates$mediatedProportion),
     mseDirectEffect = mean((simulationSettings$yA - estimates$directLogHr)^2),
     msesMediatorEffect = mean((simulationSettings$yA - estimates$mainLogHr)^2),
     mseMainEffect = mean((log(estimates$trueMainHr) - estimates$mainLogHr)^2),
     mseIndirectEffect = mean((log(estimates$trueIndirectHr) - estimates$indirectLogHr)^2),
+    mseMediatedProportion = mean((estimates$trueMediatedProportion - estimates$mediatedProportion)^2),
     indirectType1Error = if_else(hasIndirectEffect, NA, mean(estimates$indirectLogLb > 0 | estimates$indirectLogUb < 0)),
     indirectType2Error = if_else(hasIndirectEffect, mean(estimates$indirectLogLb <= 0 & estimates$indirectLogUb >= 0), NA),
     nonEstimableFraction = mean(nonEstimableIdx)

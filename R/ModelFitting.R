@@ -231,12 +231,19 @@ fitModel <- function(data, settings) {
   
   # Compute indirect effect using the difference method:
   indirectLogHr <- mainLogHr - directLogHr
+  mediatedProportion <- indirectLogHr / mainLogHr
   if (is.na(indirectLogHr)) {
-    indirectCi <- c(NA, NA)
+    ci <- list(ciIndirect = c(NA, NA),
+               ciMediatedProportion = c(NA, NA))
   } else if (indirectLogHr == 0) {
-    indirectCi <- c(0, 0)
+    ci <- list(ciIndirect = c(0, 0),
+               ciMediatedProportion = c(0, 0))
+    
   } else {
-    indirectCi <- computeIndirectEffectCi(filteredData, f, indirectLogHr)
+    ci <- computeIndirectEffectCi(data = filteredData, 
+                                  f = f, 
+                                  mleIndirect = indirectLogHr, 
+                                  mleMediatedProportion = mediatedProportion)
   }
   result <- tibble(mainLogHr = mainLogHr,
                    mainLogLb = mainCi[1],
@@ -247,10 +254,14 @@ fitModel <- function(data, settings) {
                    mediatorLogLb = mediatorCi[1],
                    mediatorLogUb = mediatorCi[2],
                    indirectLogHr = indirectLogHr,
-                   indirectLogLb = indirectCi[1],
-                   indirectLogUb = indirectCi[2],
+                   indirectLogLb = ci$ciIndirect[1],
+                   indirectLogUb = ci$ciIndirect[2],
+                   mediatedProportion = mediatedProportion,
+                   mediatedProportionLb = ci$ciMediatedProportion[1],
+                   mediatedProportionUb = ci$ciMediatedProportion[2],
                    trueMainHr = data$hrMain[1],
                    trueIndirectHr = data$hrIndirect[1],
+                   trueMediatedProportion = data$mediatedProportion[1],
                    targetSubjects = sum(data$a),
                    comparatorSubjects = sum(!data$a),
                    targetMediators = sum(data$m[data$a]),
@@ -298,7 +309,7 @@ singleBootstrapSample <- function(dummy, x, y, stratumIds, uniqueStratumIds) {
 }
 
 # mle = indirectLogHr
-computeIndirectEffectCi <- function(data, f, mle) {
+computeIndirectEffectCi <- function(data, f, mleIndirect, mleMediatedProportion) {
   # Optimized for speed: call agreg.fit directly, which is order of magnitude faster than calling coxph:
   terms <- terms(f)
   if ("stratumId" %in% colnames(data)) {
@@ -321,23 +332,42 @@ computeIndirectEffectCi <- function(data, f, mle) {
     stratumIds <- NULL
   }
   y <- Surv(data$tStart, data$tEnd, data$y)
-  bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, stratumIds = stratumIds, uniqueStratumIds =uniqueStratumIds)  
+  bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, stratumIds = stratumIds, uniqueStratumIds =uniqueStratumIds) 
+  sampleIndirect <- bootstrap[1, ] - bootstrap[2, ]
+  sampleMediatedProportion <- sampleIndirect / bootstrap[1, ]
+  percentiles <- c(0.025, 0.975)
+  percentilesIndirect <- adjustPercentiles(percentiles = percentiles,
+                                           bootstrapType = bootstrapType,
+                                           sample = sampleIndirect,
+                                           mle = mleIndirect)
+  percentilesMediatedProportion <- adjustPercentiles(percentiles = percentiles,
+                                                     bootstrapType = bootstrapType,
+                                                     sample = sampleMediatedProportion,
+                                                     mle = mleMediatedProportion)
+  ciIndirect <- quantile(sampleIndirect, percentilesIndirect, na.rm = TRUE)
+  ciMediatedProportion <- quantile(sampleMediatedProportion, percentilesMediatedProportion, na.rm = TRUE)
+  if (bootstrapType == "pivoted") {
+    ciIndirect <- pivotBootstrap(ciIndirect, mleIndirect)
+    ciMediatedProportion <- pivotBootstrap(ciMediatedProportion, mleMediatedProportion)
+  }
+  return(list(ciIndirect = ciIndirect,
+              ciMediatedProportion = ciMediatedProportion))
+}
+
+adjustPercentiles <- function(percentiles, bootstrapType, sample, mle) {
   if (bootstrapType == "bias-corrected" || bootstrapType == "reduced bias-corrected") {
-    indirectLogHrSample <- bootstrap[1, ] - bootstrap[2, ]
-    zAdj <- qnorm(mean(indirectLogHrSample < mle, na.rm = TRUE))
+    zAdj <- qnorm(mean(sample < mle, na.rm = TRUE))
     if (bootstrapType == "reduced bias-corrected") {
-      percentiles <- c(pnorm(zAdj + qnorm(0.025)),
-                       pnorm(zAdj + qnorm(0.975)))
+      percentiles <- c(pnorm(zAdj + qnorm(percentiles[1])),
+                       pnorm(zAdj + qnorm(percentiles[2])))
     } else {
-      percentiles <- c(pnorm(2*zAdj + qnorm(0.025)),
-                       pnorm(2*zAdj + qnorm(0.975)))
-    }
-    ci <- quantile(bootstrap[1, ] - bootstrap[2, ], percentiles, na.rm = TRUE)
-  } else {
-    ci <- quantile(bootstrap[1, ] - bootstrap[2, ], c(0.025, 0.975), na.rm = TRUE)
-    if (bootstrapType == "pivoted") {
-      ci <- c(2*mle - ci[2], 2*mle - ci[1])
+      percentiles <- c(pnorm(2*zAdj + qnorm(percentiles[1])),
+                       pnorm(2*zAdj + qnorm(percentiles[2])))
     }
   }
-  return(ci)
+  return(percentiles)
+}
+
+pivotBootstrap <- function(ci, mle) {
+  return(c(2*mle - ci[2], 2*mle - ci[1]))
 }

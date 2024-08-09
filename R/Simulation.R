@@ -192,7 +192,8 @@ simulateData <- function(settings) {
     pA = pA,
     hMstar = hMstar,
     hrMain = hrMain,
-    hrIndirect = hrIndirect
+    hrIndirect = hrIndirect,
+    mediatedProportion = log(hrIndirect) / log(hrMain)
   ) %>%
     bind_cols(x)
   return(data)

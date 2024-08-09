@@ -537,14 +537,8 @@
     },
     "SqlRender": {
       "Package": "SqlRender",
-      "Version": "1.17.1",
-      "Source": "unknown",
-      "Requirements": [
-        "checkmate",
-        "rJava",
-        "rlang"
-      ],
-      "Hash": "cf7b97d8ba4d49464182800446697531"
+      "Version": "1.18.0",
+      "Source": "CRAN"
     },
     "TTR": {
       "Package": "TTR",
