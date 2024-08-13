@@ -17,8 +17,9 @@
 # data = simulateData(createSimulationSettings())
 # settings = createModelsettings()
 
-sampling <- "strata" # strata or person
-bootstrapType <- "percentile" #reduced bias-corrected, bias-corrected, percentile or pivoted
+options("sampling" = "strata") # strata or person
+options("bootstrapType" = "percentile") # 'reduced bias-corrected', 'bias-corrected', 'percentile' or 'pivoted'
+options("dropUninformativeStrata" = TRUE)
 
 #' Create model fitting settings
 #'
@@ -192,7 +193,7 @@ fitModel <- function(data, settings) {
   # Cleanup: remove (near) zero-length intervals:
   data <- data %>%
     filter(.data$tEnd - .data$tStart > 0.0001)
-  if (settings$psAdjustment == "matching" && sampling == "strata") {
+  if (settings$psAdjustment == "matching" && getOption("sampling") == "strata" && getOption("dropUninformativeStrata")) {
     nonInformativeStratumIds <- data %>%
       group_by(.data$stratumId) %>%
       summarise(total = sum(.data$y)) %>%
@@ -201,9 +202,9 @@ fitModel <- function(data, settings) {
     filteredData <- data %>%
       filter(!.data$stratumId %in% nonInformativeStratumIds)
   } else {
-    filteredData <- data 
+    filteredData <- data
   }
-  
+
   # With mediator:
   control <- coxph.control(iter.max = 1000)
   fit1 <- tryCatch(coxph(update(f, ~ . + m), data = filteredData, control = control), error = function(e) "Error")
@@ -256,12 +257,9 @@ fitModel <- function(data, settings) {
                    indirectLogHr = indirectLogHr,
                    indirectLogLb = ci$ciIndirect[1],
                    indirectLogUb = ci$ciIndirect[2],
-                   mediatedProportion = mediatedProportion,
+                   mediatedProportion = !!mediatedProportion,
                    mediatedProportionLb = ci$ciMediatedProportion[1],
                    mediatedProportionUb = ci$ciMediatedProportion[2],
-                   trueMainHr = data$hrMain[1],
-                   trueIndirectHr = data$hrIndirect[1],
-                   trueMediatedProportion = data$mediatedProportion[1],
                    targetSubjects = sum(data$a),
                    comparatorSubjects = sum(!data$a),
                    targetMediators = sum(data$m[data$a]),
@@ -277,7 +275,7 @@ singleBootstrapSample <- function(dummy, x, y, stratumIds, uniqueStratumIds) {
   if (is.null(stratumIds)) {
     idx <- sample.int(nrow(x), nrow(x), replace = TRUE)
   } else {
-    if (sampling == "strata") {
+    if (getOption("sampling") == "strata") {
       sampledStratumIds <- sample(uniqueStratumIds$stratumId, 
                                   size = nrow(uniqueStratumIds), 
                                   prob = uniqueStratumIds$weight,
@@ -315,7 +313,7 @@ computeIndirectEffectCi <- function(data, f, mleIndirect, mleMediatedProportion)
   if ("stratumId" %in% colnames(data)) {
     strataIdx <- grep("strata", attr(terms, "term.labels"))
     x <- cbind(model.matrix(terms[-strataIdx], data = data)[, -1], data$m)
-    if (sampling == "strata") {
+    if (getOption("sampling") == "strata") {
       uniqueStratumIds <- data %>%
         group_by(stratumId) %>%
         summarize(weight = sum(.data$tEnd - .data$tStart) / sum(data$tEnd - data$tStart))
@@ -332,21 +330,19 @@ computeIndirectEffectCi <- function(data, f, mleIndirect, mleMediatedProportion)
     stratumIds <- NULL
   }
   y <- Surv(data$tStart, data$tEnd, data$y)
-  bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, stratumIds = stratumIds, uniqueStratumIds =uniqueStratumIds) 
+  bootstrap <- sapply(seq_len(1000), singleBootstrapSample, x = x, y = y, stratumIds = stratumIds, uniqueStratumIds = uniqueStratumIds) 
   sampleIndirect <- bootstrap[1, ] - bootstrap[2, ]
   sampleMediatedProportion <- sampleIndirect / bootstrap[1, ]
   percentiles <- c(0.025, 0.975)
   percentilesIndirect <- adjustPercentiles(percentiles = percentiles,
-                                           bootstrapType = bootstrapType,
                                            sample = sampleIndirect,
                                            mle = mleIndirect)
   percentilesMediatedProportion <- adjustPercentiles(percentiles = percentiles,
-                                                     bootstrapType = bootstrapType,
                                                      sample = sampleMediatedProportion,
                                                      mle = mleMediatedProportion)
   ciIndirect <- quantile(sampleIndirect, percentilesIndirect, na.rm = TRUE)
   ciMediatedProportion <- quantile(sampleMediatedProportion, percentilesMediatedProportion, na.rm = TRUE)
-  if (bootstrapType == "pivoted") {
+  if (getOption("bootstrapType") == "pivoted") {
     ciIndirect <- pivotBootstrap(ciIndirect, mleIndirect)
     ciMediatedProportion <- pivotBootstrap(ciMediatedProportion, mleMediatedProportion)
   }
@@ -354,10 +350,10 @@ computeIndirectEffectCi <- function(data, f, mleIndirect, mleMediatedProportion)
               ciMediatedProportion = ciMediatedProportion))
 }
 
-adjustPercentiles <- function(percentiles, bootstrapType, sample, mle) {
-  if (bootstrapType == "bias-corrected" || bootstrapType == "reduced bias-corrected") {
+adjustPercentiles <- function(percentiles, sample, mle) {
+  if (getOption("bootstrapType") == "bias-corrected" || getOption("bootstrapType") == "reduced bias-corrected") {
     zAdj <- qnorm(mean(sample < mle, na.rm = TRUE))
-    if (bootstrapType == "reduced bias-corrected") {
+    if (getOption("bootstrapType") == "reduced bias-corrected") {
       percentiles <- c(pnorm(zAdj + qnorm(percentiles[1])),
                        pnorm(zAdj + qnorm(percentiles[2])))
     } else {

@@ -84,7 +84,12 @@ runOneSimulation <- function(seed, simulationSettings, modelSettingsList) {
   estimates <- list()
   for (i in seq_along(modelSettingsList)) {
     modelSettings <- modelSettingsList[[i]]
-    estimates[[i]] <- fitModel(data, modelSettings)
+    estimate <- fitModel(data, modelSettings)
+    estimates[[i]] <- bind_cols(estimate, tibble(
+      trueMainHr = data$hrMain[1],
+      trueIndirectHr = data$hrIndirect[1],
+      trueMediatedProportion = data$mediatedProportion[1])
+    )
   }
   return(estimates)
 }
@@ -103,7 +108,7 @@ evaluateSingleResult <- function(simulationSettings, modelSettings, estimates) {
     coverageIndirectEffect = mean(log(estimates$trueIndirectHr) >= estimates$indirectLogLb &
                                     log(estimates$trueIndirectHr) <= estimates$indirectLogUb),
     coverageMediatedProportion = mean(estimates$trueMediatedProportion >= estimates$mediatedProportionLb &
-                                    estimates$trueMediatedProportion <= estimates$mediatedProportionUb),
+                                        estimates$trueMediatedProportion <= estimates$mediatedProportionUb),
     aboveIndirectEffect = mean(log(estimates$trueIndirectHr) >= estimates$indirectLogUb),
     belowIndirectEffect = mean(log(estimates$trueIndirectHr) <= estimates$indirectLogLb),
     biasDirectEffect = mean(simulationSettings$yA - estimates$directLogHr),
