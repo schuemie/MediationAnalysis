@@ -252,7 +252,7 @@ fitModel <- function(data, settings) {
   
   # Compute indirect effect using the difference method:
   indirectLogHr <- mainLogHr - directLogHr
-  mediatedProportion <- indirectLogHr / mainLogHr
+  mediatedProportion <- (exp(indirectLogHr) - 1) / (exp(mainLogHr)-1)
   if (is.na(indirectLogHr)) {
     ci <- list(ciIndirect = c(NA, NA),
                ciMediatedProportion = c(NA, NA))
@@ -317,10 +317,10 @@ singleBootstrapSample <- function(dummy, x, y, stratumIds, uniqueStratumIds, boo
   control <- coxph.control()
   tryCatch({
     suppressWarnings({
-      fit1 <- agreg.fit(x, y, stratumIds, control = control, method = "efron", rownames = seq_along(idx), init = rep(0,ncol(x)))
-      fit2 <- agreg.fit(x[, -ncol(x), drop = FALSE], y, stratumIds, control = control, method = "efron", rownames = seq_along(idx),  init = rep(0, ncol(x)-1))
+      fit1 <- agreg.fit(x[, -ncol(x), drop = FALSE], y, stratumIds, control = control, method = "efron", rownames = seq_along(idx),  init = rep(0, ncol(x)-1))
+      fit2 <- agreg.fit(x, y, stratumIds, control = control, method = "efron", rownames = seq_along(idx), init = rep(0,ncol(x)))
     })
-    return(c(fit2$coefficients[1], fit1$coefficients[1]))
+    return(c(fit1$coefficients[1], fit2$coefficients[1]))
   },
   error = function(e) {
     return(c(NA, NA))
@@ -359,7 +359,7 @@ computeIndirectEffectCi <- function(data, f, mleIndirect, mleMediatedProportion,
                       uniqueStratumIds = uniqueStratumIds,
                       bootstrapSettings = bootstrapSettings) 
   sampleIndirect <- bootstrap[1, ] - bootstrap[2, ]
-  sampleMediatedProportion <- sampleIndirect / bootstrap[1, ]
+  sampleMediatedProportion <- (exp(sampleIndirect) - 1) / (exp(bootstrap[1, ]) - 1)
   percentiles <- c(0.025, 0.975)
   percentilesIndirect <- adjustPercentiles(percentiles = percentiles,
                                            sample = sampleIndirect,
