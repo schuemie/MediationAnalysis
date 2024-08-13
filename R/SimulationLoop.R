@@ -131,9 +131,12 @@ evaluateSingleResult <- function(simulationSettings, modelSettings, estimates) {
     simSettingsForOutput$mX <- paste(simSettingsForOutput$mX, collapse = ", ")
     simSettingsForOutput$yX <- paste(simSettingsForOutput$yX, collapse = ", ")
   }
+  modelSettingForOutput <- modelSettings
+  modelSettingForOutput$bootstrapSettings <- NULL
+  modelSettingForOutput <- append(modelSettingForOutput, modelSettings$bootstrapSettings)
   class(simSettingsForOutput) <- "list"
   results <- results %>% 
-    bind_cols(as_tibble(modelSettings)) %>%
+    bind_cols(as_tibble(modelSettingForOutput)) %>%
     bind_cols(as_tibble(simSettingsForOutput))
   return(results)
 }

@@ -9,7 +9,8 @@ createModelsettings(
   mrs = "oracle",
   psAdjustment = "matching",
   mrsAdjustment = "model",
-  mediatorType = "time-to-event"
+  mediatorType = "time-to-event",
+  bootstrapSettings = createBootstrapSettings()
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ createModelsettings(
 
 \item{mediatorType}{Type of mediator in the model. Can be "time-to-event" or
 "binary".}
+
+\item{bootstrapSettings}{A settings object created by the \code{createBootstrapSettings()} function.}
 }
 \value{
 A tibble with the point estimates and 95 percent confidence intervals for the

@@ -40,36 +40,42 @@ folder <- tempfile()
 
 dir.create(folder)
 simulationSettings <- createAbstractSimulationSettings(
+  n = 1000,
   confoundingAySd = 0.1,
   confoundingmYSd = 0.1,
   confoundingAymSd = 0.1,
-  aIntercept = log(0.5),
+  aIntercept = log(0.1),
   mIntercept = log(0.01),
-  yIntercept = log(0.1),
-  mA = log(2),
-  yA = log(2),
-  yM = log(2)
+  yIntercept = log(0.01),
+  mA = log(0.8),
+  yA = log(0.9),
+  yM = log(1.0)
 )
 # modelSettings <- createModelsettings(psAdjustment = "none",
 #                                      mrsAdjustment = "none")
-modelSettings <- createModelsettings()
+modelSettings1 <- createModelsettings()
+modelSettings2 <- createModelsettings(bootstrapSettings = createBootstrapSettings(bootstrapType = "reduced bias-corrected"))
+
 runSetOfSimulations(folder = folder, 
                     simulationSettingsList = list(simulationSettings), 
-                    modelSettingsList = list(modelSettings),
+                    modelSettingsList = list(modelSettings1, modelSettings2),
                     nSimulations = 1000,
                     maxCores = 10) 
 results <- read.csv(file.path(folder, "Results.csv"))
 results
 unlink(folder, recursive = TRUE)
 
-
+seed <- seed + 1
+set.seed(seed)
 data <- simulateData(simulationSettings)
-sum(data$m)
-sum(data$y)
-sum(data$m & data$y)
+# sum(data$m)
+# sum(data$y)
+# sum(data$m & data$y)
 model <- fitModel(data, modelSettings)
+writeLines(sprintf("Mediated proportion: %0.2f (%0.2f - %0.2f)", model$mediatedProportion, model$mediatedProportionLb, model$mediatedProportionUb))
+
 settings <- modelSettings
-library(dplyr)
+librarlibrarlibrary(dplyr)
 sampling <- "strata" # strata or person
 bootstrapType <- "percentile" # percentile or pivoted
 sprintf("CI: %0.2f-%0.2f, true HR: %0.2f", exp(model$indirectLogLb), exp(model$indirectLogUb), model$trueIndirectHr)
