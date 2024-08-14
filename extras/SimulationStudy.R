@@ -37,13 +37,31 @@ msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
                                                     psAdjustment = "matching",
                                                     mrsAdjustment = "model",
                                                     mediatorType = "time-to-event")
-
+msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
+                                                    mrs = "fit",
+                                                    psAdjustment = "matching",
+                                                    mrsAdjustment = "model",
+                                                    mediatorType = "time-to-event",
+                                                    bootstrapSettings = createBootstrapSettings(bootstrapType = 'reduced bias-corrected'))
+msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
+                                                    mrs = "fit",
+                                                    psAdjustment = "matching",
+                                                    mrsAdjustment = "model",
+                                                    mediatorType = "time-to-event",
+                                                    bootstrapSettings = createBootstrapSettings(bootstrapType = 'bias-corrected'))
+msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
+                                                    mrs = "fit",
+                                                    psAdjustment = "matching",
+                                                    mrsAdjustment = "model",
+                                                    mediatorType = "time-to-event",
+                                                    bootstrapSettings = createBootstrapSettings(bootstrapType = 'pivoted'))
 runSetOfSimulations(folder = folder, 
                     simulationSettingsList = ssList, 
                     modelSettingsList = msList,
                     nSimulations = 1000,
                     maxCores = 25) 
 
+results <- readr::read_csv(file.path(folder, "Results.csv"))
 prepareForShinyApp(folder)
 
 # Full simulation study --------------------------------------------------------

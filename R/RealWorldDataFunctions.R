@@ -242,11 +242,13 @@ fitMediatorModel <- function(studyPopulation,
                              mrs,  
                              psAdjustment = "matching",
                              mrsAdjustment = "model",
-                             mediatorType = "time-to-event") {
+                             mediatorType = "time-to-event",
+                             bootstrapSettings = createBootstrapSettings()) {
   settings <- createModelsettings(
     psAdjustment = psAdjustment,
     mrsAdjustment = mrsAdjustment,
-    mediatorType = mediatorType
+    mediatorType = mediatorType,
+    bootstrapSettings = bootstrapSettings
   )
   data <- studyPopulation %>%
     inner_join(ps %>%

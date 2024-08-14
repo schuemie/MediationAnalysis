@@ -296,6 +296,7 @@ for (database in databases) {
             riskWindowEnd = 0,
             endAnchor = "cohort end"
           )
+          set.seed(123)
           model <- fitMediatorModel(
             studyPopulation = studyPop,
             ps = ps,
@@ -303,6 +304,10 @@ for (database in databases) {
             psAdjustment = "matching",
             mrsAdjustment = "model",
             mediatorType = "time-to-event")
+          # if (!is.na(model$mediatedProportion) &&
+          #     (model$mediatedProportion < model$mediatedProportionLb || model$mediatedProportion > model$mediatedProportionUb)) {
+          #   stop("Error for outcome Id ", outcomeId)
+          # }
           model <- model %>%
             mutate(outcomeId = !!outcomeId)
           estimates[[length(estimates) + 1]] <- model
