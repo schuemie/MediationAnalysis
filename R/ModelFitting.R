@@ -20,7 +20,7 @@
 #' Create bootstrap settings
 #'
 #' @param sampleSize.             Size of the bootstrap
-#' @param sampling                'strata' or 'person'
+#' @param sampling                'person', strata', or 'weighted strata'
 #' @param bootstrapType           'reduced bias-corrected', 'bias-corrected', 'percentile' or 'pivoted'
 #' @param dropUninformativeStrata TRUE or FALSE
 #'
@@ -29,7 +29,7 @@
 #'
 #' @examples
 createBootstrapSettings <- function(sampleSize = 1000,
-                                    sampling = "strata",
+                                    sampling = "weighted strata",
                                     bootstrapType = "percentile",
                                     dropUninformativeStrata = TRUE) {
   settings <- list()
@@ -296,7 +296,7 @@ singleBootstrapSample <- function(dummy, x, y, stratumIds, uniqueStratumIds, boo
   if (is.null(stratumIds)) {
     idx <- sample.int(nrow(x), nrow(x), replace = TRUE)
   } else {
-    if (bootstrapSettings$sampling == "strata") {
+    if (bootstrapSettings$sampling == "strata" || bootstrapSettings$sampling == "weighted strata") {
       sampledStratumIds <- sample(uniqueStratumIds$stratumId, 
                                   size = nrow(uniqueStratumIds), 
                                   prob = uniqueStratumIds$weight,
@@ -334,16 +334,25 @@ computeIndirectEffectCi <- function(data, f, mleIndirect, mleMediatedProportion,
   if ("stratumId" %in% colnames(data)) {
     strataIdx <- grep("strata", attr(terms, "term.labels"))
     x <- cbind(model.matrix(terms[-strataIdx], data = data)[, -1], data$m)
-    if (bootstrapSettings$sampling == "strata") {
+    if (bootstrapSettings$sampling == "weighted strata") {
       uniqueStratumIds <- data %>%
         group_by(stratumId) %>%
         summarize(weight = sum(.data$tEnd - .data$tStart) / sum(data$tEnd - data$tStart))
       stratumIds <- data %>%
         select("stratumId") %>%
         mutate(idx = row_number())
-    } else {
+    } else if (bootstrapSettings$sampling == "strata") {
+      uniqueStratumIds <- data %>%
+        group_by(stratumId) %>%
+        summarize(weight = 1 / length(unique(data$stratumId)))
+      stratumIds <- data %>%
+        select("stratumId") %>%
+        mutate(idx = row_number())
+    } else if (bootstrapSettings$sampling == "person")  {
       uniqueStratumIds <- NULL
       stratumIds <- data$stratumId
+    } else {
+      stop("Unknown sampling: ", bootstrapSettings$sampling)
     }
   } else {
     x <- cbind(model.matrix(terms, data = data)[, -1], data$m)
