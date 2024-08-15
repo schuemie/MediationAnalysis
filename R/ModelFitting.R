@@ -213,7 +213,9 @@ fitModel <- function(data, settings) {
   # Cleanup: remove (near) zero-length intervals:
   data <- data %>%
     filter(.data$tEnd - .data$tStart > 0.0001)
-  if (settings$psAdjustment == "matching" && settings$bootstrapSettings$sampling == "strata" && settings$bootstrapSettings$dropUninformativeStrata) {
+  if (settings$psAdjustment == "matching" && 
+      (settings$bootstrapSettings$sampling == "strata" || settings$bootstrapSettings$sampling == "weighted strata") &&
+      settings$bootstrapSettings$dropUninformativeStrata) {
     nonInformativeStratumIds <- data %>%
       group_by(.data$stratumId) %>%
       summarise(total = sum(.data$y)) %>%
