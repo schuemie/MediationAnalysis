@@ -20,7 +20,7 @@
 #' Create bootstrap settings
 #'
 #' @param sampleSize.             Size of the bootstrap
-#' @param sampling                'person', strata', or 'weighted strata'
+#' @param sampling                'person', 'strata', 'weighted person' or 'weighted strata'
 #' @param bootstrapType           'reduced bias-corrected', 'bias-corrected', 'percentile' or 'pivoted'
 #' @param dropUninformativeStrata TRUE or FALSE
 #'
@@ -29,8 +29,8 @@
 #'
 #' @examples
 createBootstrapSettings <- function(sampleSize = 1000,
-                                    sampling = "weighted strata",
-                                    bootstrapType = "percentile",
+                                    sampling = "person",
+                                    bootstrapType = "reduced bias-corrected",
                                     dropUninformativeStrata = TRUE) {
   settings <- list()
   for (name in names(formals("createBootstrapSettings"))) {
@@ -307,9 +307,16 @@ singleBootstrapSample <- function(dummy, x, y, stratumIds, uniqueStratumIds, boo
                         relationship = "many-to-many") %>%
         pull("idx")
       stratumIds <- stratumIds$stratumId[idx]
-    } else {
+    } else if (bootstrapSettings$sampling == "weighted person") {
+      idx <- sample(uniqueStratumIds$idx, 
+                    size = nrow(uniqueStratumIds), 
+                    prob = uniqueStratumIds$weight,
+                    replace = TRUE)
+    } else if (bootstrapSettings$sampling == "person") {
       idx <- sample.int(nrow(x), nrow(x), replace = TRUE)
       stratumIds <- stratumIds[idx]
+    } else {
+      stop("Unknown sampling: ", bootstrapSettings$sampling)
     }
   }
   x <- x[idx, ]
@@ -350,6 +357,11 @@ computeIndirectEffectCi <- function(data, f, mleIndirect, mleMediatedProportion,
         mutate(idx = row_number())
     } else if (bootstrapSettings$sampling == "person")  {
       uniqueStratumIds <- NULL
+      stratumIds <- data$stratumId
+    } else if (bootstrapSettings$sampling == "weighted person")  {
+      uniqueStratumIds <- data %>%
+        transmute(idx = row_number(),
+               weight = (.data$tEnd - .data$tStart) / sum(data$tEnd - data$tStart))
       stratumIds <- data$stratumId
     } else {
       stop("Unknown sampling: ", bootstrapSettings$sampling)

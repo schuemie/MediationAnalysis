@@ -45,20 +45,18 @@ simulationSettings <- createAbstractSimulationSettings(
   confoundingmYSd = 0.1,
   confoundingAymSd = 0.1,
   aIntercept = log(0.1),
-  mIntercept = log(0.01),
-  yIntercept = log(0.01),
-  mA = log(0.8),
-  yA = log(0.9),
-  yM = log(1.0)
+  mIntercept = log(0.1),
+  yIntercept = log(0.04),
+  mA = log(4),
+  yA = log(1),
+  yM = log(4)
 )
-# modelSettings <- createModelsettings(psAdjustment = "none",
-#                                      mrsAdjustment = "none")
-modelSettings1 <- createModelsettings()
-modelSettings2 <- createModelsettings(bootstrapSettings = createBootstrapSettings(bootstrapType = "reduced bias-corrected"))
+modelSettings <- createModelsettings(bootstrapSettings = createBootstrapSettings(sampling = "weighted person",
+                                                                                  bootstrapType = "reduced bias-corrected"))
 
 runSetOfSimulations(folder = folder, 
                     simulationSettingsList = list(simulationSettings), 
-                    modelSettingsList = list(modelSettings1, modelSettings2),
+                    modelSettingsList = list(modelSettings),
                     nSimulations = 1000,
                     maxCores = 10) 
 results <- read.csv(file.path(folder, "Results.csv"))
@@ -75,9 +73,7 @@ model <- fitModel(data, modelSettings)
 writeLines(sprintf("Mediated proportion: %0.2f (%0.2f - %0.2f)", model$mediatedProportion, model$mediatedProportionLb, model$mediatedProportionUb))
 
 settings <- modelSettings
-librarlibrarlibrary(dplyr)
-sampling <- "strata" # strata or person
-bootstrapType <- "percentile" # percentile or pivoted
+library(dplyr)
 sprintf("CI: %0.2f-%0.2f, true HR: %0.2f", exp(model$indirectLogLb), exp(model$indirectLogUb), model$trueIndirectHr)
 
 indirectLogHr

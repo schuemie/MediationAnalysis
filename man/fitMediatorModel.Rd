@@ -10,7 +10,8 @@ fitMediatorModel(
   mrs,
   psAdjustment = "matching",
   mrsAdjustment = "model",
-  mediatorType = "time-to-event"
+  mediatorType = "time-to-event",
+  bootstrapSettings = createBootstrapSettings()
 )
 }
 \arguments{

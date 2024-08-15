@@ -6,13 +6,13 @@
 \usage{
 createBootstrapSettings(
   sampleSize = 1000,
-  sampling = "strata",
-  bootstrapType = "percentile",
+  sampling = "person",
+  bootstrapType = "reduced bias-corrected",
   dropUninformativeStrata = TRUE
 )
 }
 \arguments{
-\item{sampling}{'strata' or 'person'}
+\item{sampling}{'person', 'strata', 'weighted person' or 'weighted strata'}
 
 \item{bootstrapType}{'reduced bias-corrected', 'bias-corrected', 'percentile' or 'pivoted'}
 
