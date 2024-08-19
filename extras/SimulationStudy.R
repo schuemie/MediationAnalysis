@@ -30,31 +30,64 @@ for (yA in log(c(0.5))) {
     }
   }
 }
-print(length(ssList))
+
 msList <- list()
 msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
                                                     mrs = "fit",
                                                     psAdjustment = "matching",
                                                     mrsAdjustment = "model",
-                                                    mediatorType = "time-to-event")
+                                                    mediatorType = "time-to-event",
+                                                    bootstrapSettings = createBootstrapSettings(sampling = "strata"))
 msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
                                                     mrs = "fit",
                                                     psAdjustment = "matching",
                                                     mrsAdjustment = "model",
                                                     mediatorType = "time-to-event",
-                                                    bootstrapSettings = createBootstrapSettings(bootstrapType = 'reduced bias-corrected'))
+                                                    bootstrapSettings = createBootstrapSettings(sampling = "strata",
+                                                                                                bootstrapType = 'reduced bias-corrected'))
 msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
                                                     mrs = "fit",
                                                     psAdjustment = "matching",
                                                     mrsAdjustment = "model",
                                                     mediatorType = "time-to-event",
-                                                    bootstrapSettings = createBootstrapSettings(bootstrapType = 'bias-corrected'))
+                                                    bootstrapSettings = createBootstrapSettings(sampling = "strata",
+                                                                                                bootstrapType = 'bias-corrected'))
 msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
                                                     mrs = "fit",
                                                     psAdjustment = "matching",
                                                     mrsAdjustment = "model",
                                                     mediatorType = "time-to-event",
-                                                    bootstrapSettings = createBootstrapSettings(bootstrapType = 'pivoted'))
+                                                    bootstrapSettings = createBootstrapSettings(sampling = "strata",
+                                                                                                bootstrapType = 'pivoted'))
+msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
+                                                    mrs = "fit",
+                                                    psAdjustment = "matching",
+                                                    mrsAdjustment = "model",
+                                                    mediatorType = "time-to-event",
+                                                    bootstrapSettings = createBootstrapSettings(sampling = "person"))
+msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
+                                                    mrs = "fit",
+                                                    psAdjustment = "matching",
+                                                    mrsAdjustment = "model",
+                                                    mediatorType = "time-to-event",
+                                                    bootstrapSettings = createBootstrapSettings(sampling = "person",
+                                                                                                bootstrapType = 'reduced bias-corrected'))
+msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
+                                                    mrs = "fit",
+                                                    psAdjustment = "matching",
+                                                    mrsAdjustment = "model",
+                                                    mediatorType = "time-to-event",
+                                                    bootstrapSettings = createBootstrapSettings(sampling = "person",
+                                                                                                bootstrapType = 'bias-corrected'))
+msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
+                                                    mrs = "fit",
+                                                    psAdjustment = "matching",
+                                                    mrsAdjustment = "model",
+                                                    mediatorType = "time-to-event",
+                                                    bootstrapSettings = createBootstrapSettings(sampling = "person",
+                                                                                                bootstrapType = 'pivoted'))
+print(length(ssList))
+print(length(msList))
 runSetOfSimulations(folder = folder, 
                     simulationSettingsList = ssList, 
                     modelSettingsList = msList,
@@ -62,6 +95,12 @@ runSetOfSimulations(folder = folder,
                     maxCores = 25) 
 
 results <- readr::read_csv(file.path(folder, "Results.csv"))
+library(dplyr)
+results |>
+  group_by(sampling, bootstrapType) |>
+  summarise(coverageIndirectEffect = mean((0.95-coverageIndirectEffect)^2), 
+            coverageMediatedProportion = mean((0.95-coverageMediatedProportion)^2)) |>
+  arrange(coverageIndirectEffect)
 prepareForShinyApp(folder)
 
 # Full simulation study --------------------------------------------------------
@@ -99,7 +138,9 @@ msList[[1]] <- createModelsettings(ps = "fit",
                                    mrs = "fit",
                                    psAdjustment = "matching",
                                    mrsAdjustment = "model",
-                                   mediatorType = "time-to-event")
+                                   mediatorType = "time-to-event",
+                                   bootstrapSettings = createBootstrapSettings(sampling = "person",
+                                                                               bootstrapType = 'reduced bias-corrected'))
 
 runSetOfSimulations(folder = folder, 
                     simulationSettingsList = ssList, 
