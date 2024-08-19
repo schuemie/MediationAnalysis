@@ -227,56 +227,6 @@ for (database in databases) {
         mrs <- readRDS(mrsFileName)
       }
       
-      # outcomes <- tcmos %>%
-      #   filter(targetId == tc$targetId,
-      #          comparatorId == tc$comparatorId,
-      #          mediatorId == mediator$mediatorId)
-      # # outcomeId = outcomes$outcomeId[1]
-      # for (outcomeId in outcomes$outcomeId) {
-      #   table1FileName <- file.path(database$outputFolder, sprintf("table1_t%d_c%s_m%d_o%d.rds", tc$targetId, tc$comparatorId, mediator$mediatorId, outcomeId))
-      #   if (!file.exists(table1FileName)) {
-      #     studyPop <- createStudyPopulation(
-      #       cohortMethodData = cmData,
-      #       outcomeId = outcomeId,
-      #       restrictToCommonPeriod = TRUE,
-      #       removeSubjectsWithPriorOutcome = TRUE,
-      #       priorOutcomeLookback = 365,
-      #       removeDuplicateSubjects = "keep first",
-      #       riskWindowStart = 0,
-      #       startAnchor = "cohort start",
-      #       riskWindowEnd = 0,
-      #       endAnchor = "cohort end"
-      #     )
-      #     studyPop <- studyPop %>%
-      #       inner_join(mrs %>%
-      #                    select("rowId"),
-      #                  by = join_by(rowId)) %>%
-      #       inner_join(ps %>%
-      #                    select("rowId", "propensityScore"),
-      #                  by = join_by(rowId))
-      #     strataPop <- matchOnPs(studyPop, maxRatio = 100)
-      #     covariateData1 <- FeatureExtraction::filterByRowId(cmData,
-      #                                                        strataPop %>%
-      #                                                          filter(treatment == 1) %>%
-      #                                                          pull(rowId))
-      #     covariateData2 <- FeatureExtraction::filterByRowId(cmData,
-      #                                                        strataPop %>%
-      #                                                          filter(treatment == 0) %>%
-      #                                                          pull(rowId))
-      #     covariateData1 <- FeatureExtraction::aggregateCovariates(covariateData1)
-      #     covariateData2 <- FeatureExtraction::aggregateCovariates(covariateData2)
-      #     specs <- FeatureExtraction::getDefaultTable1Specifications() %>%
-      #       bind_rows(tibble(label = "HAS-BLED",
-      #                        analysisId = 999,
-      #                        covariateIds = "999"))
-      #     
-      #     table1 <- FeatureExtraction::createTable1(covariateData1 = covariateData1,
-      #                                               covariateData2 = covariateData2,
-      #                                               specifications = specs)
-      #     saveRDS(table1, table1FileName)
-      #   }
-      # }
-      
       ncsFileName <- file.path(database$outputFolder, sprintf("ncs_t%d_c%s_m%d.rds", tc$targetId, tc$comparatorId, mediator$mediatorId))
       
       if (!file.exists(ncsFileName)) {
@@ -296,7 +246,6 @@ for (database in databases) {
             riskWindowEnd = 0,
             endAnchor = "cohort end"
           )
-          set.seed(123)
           model <- fitMediatorModel(
             studyPopulation = studyPop,
             ps = ps,
@@ -304,10 +253,6 @@ for (database in databases) {
             psAdjustment = "matching",
             mrsAdjustment = "model",
             mediatorType = "time-to-event")
-          # if (!is.na(model$mediatedProportion) &&
-          #     (model$mediatedProportion < model$mediatedProportionLb || model$mediatedProportion > model$mediatedProportionUb)) {
-          #   stop("Error for outcome Id ", outcomeId)
-          # }
           model <- model %>%
             mutate(outcomeId = !!outcomeId)
           estimates[[length(estimates) + 1]] <- model
@@ -316,7 +261,8 @@ for (database in databases) {
         estimates <- estimates %>%
           mutate(mainSeLogRr = (mainLogUb - mainLogLb) / (2*qnorm(0.975)),
                  indirectSeLogRr = (indirectLogUb - indirectLogLb ) / (2*qnorm(0.975)),
-                 directSeLogRr = (directLogUb - directLogLb ) / (2*qnorm(0.975)))
+                 directSeLogRr = (directLogUb - directLogLb ) / (2*qnorm(0.975)),
+                 mediatedProportionSeLogRr = (mediatedProportionUb - mediatedProportionLb) / (2*qnorm(0.975)))
         nullMain <- EmpiricalCalibration::fitMcmcNull(
           logRr = estimates$mainLogHr,
           seLogRr = estimates$mainSeLogRr
@@ -359,10 +305,25 @@ for (database in databases) {
           showExpectedAbsoluteSystematicError = TRUE,
           fileName = file.path(database$outputFolder, sprintf("ncsIndirectEffect_t%d_c%s_m%d.png", tc$targetId, tc$comparatorId, mediator$mediatorId))
         )
+        nullMediatedProportion <- EmpiricalCalibration::fitMcmcNull(
+          logRr = estimates$mediatedProportion,
+          seLogRr = estimates$mediatedProportionSeLogRr
+        )
+        EmpiricalCalibration::plotCalibrationEffect(
+          logRrNegatives = estimates$mediatedProportion,
+          seLogRrNegatives = estimates$mediatedProportionSeLogRr,
+          null = nullMediatedProportion,
+          title = "Indirect effect",
+          xLabel = "Hazard ratio",
+          showCis = TRUE,
+          showExpectedAbsoluteSystematicError = TRUE,
+          fileName = file.path(database$outputFolder, sprintf("ncsMediatedProportion_t%d_c%s_m%d.png", tc$targetId, tc$comparatorId, mediator$mediatorId))
+        )
         ease <- bind_cols(tc, mediator) %>%
           mutate(easeMain = EmpiricalCalibration::computeExpectedAbsoluteSystematicError(nullMain)$ease,
                  easeDirect = EmpiricalCalibration::computeExpectedAbsoluteSystematicError(nullDirect)$ease,
-                 easeIndirect = EmpiricalCalibration::computeExpectedAbsoluteSystematicError(nullIndirect)$ease) 
+                 easeIndirect = EmpiricalCalibration::computeExpectedAbsoluteSystematicError(nullIndirect)$ease,
+                 easeMediatedProportion = EmpiricalCalibration::computeExpectedAbsoluteSystematicError(nullMediatedProportion)$ease) 
         readr::write_csv(ease, file.path(database$outputFolder, sprintf("ease_t%d_c%s_m%d.csv", tc$targetId, tc$comparatorId, mediator$mediatorId)))
         saveRDS(estimates, ncsFileName)
       }
@@ -370,33 +331,14 @@ for (database in databases) {
   }
 }
 
-# Fix filenames ---------------------------------------------------------------
-for (database in databases) {
-  message(sprintf("Fixing filenames for %s", database$databaseId))
-  toFix <- list.files(database$outputFolder, "^mrs_t.*png$", full.names = TRUE)
-  if (length(toFix) > 0) {
-    newNames <- gsub(".png$", ".rds", toFix)
-    file.rename(toFix, newNames)
-  }
-}
-for (database in databases) {
-  message(sprintf("Fixing filenames for %s", database$databaseId))
-  toFix <- list.files(database$outputFolder, "^ease_t.*png$", full.names = TRUE)
-  if (length(toFix) > 0) {
-    newNames <- gsub(".png", ".csv", toFix)
-    file.rename(toFix, newNames)
-  }
-}
+# # Clean files  ---------------------------------------------------------------
+# for (database in databases) {
+#   message(sprintf("Cleaning files for %s", database$databaseId))
+#   pattern <- "^ease_|^ncs|_hois"
+#   toDelete <- list.files(database$outputFolder, pattern, full.names = TRUE)
+#   unlink(toDelete)
+# }
 
-# Back up old cmData files before refetching:
-for (database in databases) {
-  message(sprintf("Fixing filenames for %s", database$databaseId))
-  toFix <- list.files(database$outputFolder, "^cmData_t.*zip$", full.names = TRUE)
-  if (length(toFix) > 0) {
-    newNames <- paste0(toFix, ".bak")
-    file.rename(toFix, newNames)
-  }
-}
 
 # Part 3: Generate results for outcomes of interest ------------------------------------
 library(CohortMethod)
@@ -432,8 +374,7 @@ for (database in databases) {
       ncsFileName <- file.path(database$outputFolder, sprintf("ncs_t%d_c%s_m%d.rds", tc$targetId, tc$comparatorId, mediator$mediatorId))
       ncEstimates <- readRDS(ncsFileName)
       hoisFileName <- file.path(database$outputFolder, sprintf("hois_t%d_c%s_m%d.rds", tc$targetId, tc$comparatorId, mediator$mediatorId))
-      # if (!file.exists(hoisFileName)) {
-      if (TRUE) {
+      if (!file.exists(hoisFileName)) {
         outcomes <- tcmos %>%
           filter(targetId == tc$targetId,
                  comparatorId == tc$comparatorId,
