@@ -1,7 +1,7 @@
-
 library(dplyr)
 library(ggplot2)
 library(gridExtra)
+library(ggh4x)
 
 # Plots from real-world example ------------------------------------------------
 source("RealWorldExample/DatabaseDetails.R")
@@ -49,9 +49,9 @@ for (database in databases) {
   balanceFileName <- file.path(database$outputFolder, sprintf("balance_t%d_c%s.rds", target, comparator))
   balance <- readRDS(balanceFileName)
   plot <- CohortMethod::plotCovariateBalanceScatterPlot(balance,
-                                                showCovariateCountLabel = TRUE,
-                                                threshold = 0.1,
-                                                title = "")
+                                                        showCovariateCountLabel = TRUE,
+                                                        threshold = 0.1,
+                                                        title = "")
   ggsave(file.path(rootFolder, sprintf("Balance_%s.png", database$databaseId)), plot, width = 3.5, height = 3.5, dpi = 300)
   ggsave(file.path(rootFolder, sprintf("Balance_%s.pdf", database$databaseId)), plot, width = 3.5, height = 3.5, dpi = 300)
   
@@ -73,9 +73,9 @@ for (database in databases) {
       mutate(label = "Main effect"),
     ncs |>
       select(logRr = indirectLogHr,
-           lb = indirectLogLb,
-           ub = indirectLogUb,
-           outcomeName) |>
+             lb = indirectLogLb,
+             ub = indirectLogUb,
+             outcomeName) |>
       mutate(label = "Indirect effect")
   )
   vizData$outcomeName <- factor(vizData$outcomeName, levels = sort(unique(vizData$outcomeName), decreasing = TRUE))
@@ -96,4 +96,104 @@ for (database in databases) {
 
 # Forest plot
 # See last part of Execute.R
+
+
+# Plots from simulation studies ------------------------------------------------
+
+# Table showing results of pilot simulations:
+folder <- "PilotSimulation"
+results <- readr::read_csv(file.path(folder, "Results.csv"))
+# results |>
+#   group_by(sampling, bootstrapType) |>
+#   summarise(mseCoverageIndirectEffect = mean((0.95-coverageIndirectEffect)^2), 
+#             mseCoverageMediatedProportion = mean((0.95-coverageMediatedProportion)^2),
+#             mseIndirectEffect = mean(mseIndirectEffect),
+#             mseMediatedProportion = mean(mseMediatedProportion)) |>
+#   arrange(mseCoverageIndirectEffect)
+results |>
+  filter(sampling != "weighted strata") |>
+  group_by(sampling, bootstrapType) |>
+  summarise(mseCoverageIndirectEffect = mean((0.95-coverageIndirectEffect)^2), 
+            mseCoverageMediatedProportion = mean((0.95-coverageMediatedProportion)^2)) 
+
+# Violin plot showing pilot simulation results:
+folder <- "PilotSimulation"
+results <- readRDS("inst/shinyApps/MediationResultsExplorer/data/pilotSimulation.rds")
+vizData <- results |>
+  filter(metric %in% c("Coverage indirect effect",
+                       "Coverage mediated proportion",
+                       "Bias indirect effect",
+                       "Bias mediated proportion"),
+         sampling %in% c("strata", "person")) |>
+  mutate(sampling = stringr::str_to_sentence(sampling),
+         bootstrapType = gsub("^Reduced ", "Reduced\n", stringr::str_to_sentence(bootstrapType)),
+         metricType = gsub(" .*$", "" ,metric),
+         metricEstimand = gsub("^[^ ]* ", "", metric)) |>
+  mutate(metricEstimand = case_when(
+    metricEstimand == "indirect effect" ~ "Indirect\neffect",
+    metricEstimand == "mediated proportion" ~ "Mediated\nproportion"
+  )) |>
+  filter(value < 5 & value > -5)
+
+reference <- vizData |>
+  distinct(sampling, bootstrapType, metricType, metricEstimand) |>
+  mutate(y = case_when(metricType == "Bias" ~ 0,
+                       metricType == "Coverage" ~ 0.95))
+
+plot <- ggplot(vizData, aes(x = 0, y = value)) +
+  geom_hline(aes(yintercept = y), data = reference, linetype = "dashed") +
+  geom_violin(scale = "width", color = "#336B91", fill = "#336B91", alpha = 0.6) +
+  expand_limits(y = 0) + 
+  facet_nested(metricType + metricEstimand ~ sampling + bootstrapType, scales = "free_y") +
+  theme(
+    axis.title = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
+ggsave(file.path(folder, "PilotSimulations.png"), plot, width = 8.5, height = 6, dpi = 300)
+ggsave(file.path(folder, "PilotSimulations.pdf"), plot, width = 8.5, height = 6, dpi = 300)
+
+
+# Violin plot showing main simulation results:
+folder <- "Simulation"
+results <- readRDS("inst/shinyApps/MediationResultsExplorer/data/simulation.rds")
+vizData <- results |>
+  filter(metric %in% c("Coverage main effect",
+                       "Coverage indirect effect",
+                       "Coverage mediated proportion",
+                       "Bias main effect",
+                       "Bias indirect effect",
+                       "Bias mediated proportion")) |>
+  mutate(confounding = sprintf("Confounding = %0.1f", Confounding),
+         outcomePrevalence = sprintf("Outcome baseline rate = %0.2f", `Baseline outcome prevalence`),
+         metricType = gsub(" .*$", "" ,metric),
+         metricEstimand = gsub("^[^ ]* ", "", metric)) |>
+  mutate(metricEstimand = case_when(
+    metricEstimand == "indirect effect" ~ "Indirect\neffect",
+    metricEstimand == "main effect" ~ "Main\neffect",
+    metricEstimand == "mediated proportion" ~ "Mediated\nproportion"
+  )) |>
+  filter(value < 5 & value > -5)
+
+reference <- vizData |>
+  distinct(confounding, outcomePrevalence, metricType, metricEstimand) |>
+  mutate(y = case_when(metricType == "Bias" ~ 0,
+                       metricType == "Coverage" ~ 0.95))
+
+plot <- ggplot(vizData, aes(x = 0, y = value)) +
+  geom_hline(aes(yintercept = y), data = reference, linetype = "dashed") +
+  geom_violin(scale = "width", color = "#336B91", fill = "#336B91", alpha = 0.6) +
+  expand_limits(y = 0) + 
+  facet_nested(metricType + metricEstimand ~ outcomePrevalence + confounding, scales = "free_y") +
+  theme(
+    axis.title = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
+ggsave(file.path(folder, "MainSimulations.png"), plot, width = 7, height = 6, dpi = 300)
+ggsave(file.path(folder, "MainSimulations.pdf"), plot, width = 7, height = 6, dpi = 300)
 

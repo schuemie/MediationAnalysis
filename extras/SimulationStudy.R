@@ -92,16 +92,9 @@ runSetOfSimulations(folder = folder,
                     simulationSettingsList = ssList, 
                     modelSettingsList = msList,
                     nSimulations = 1000,
-                    maxCores = 25) 
+                    maxCores = parallel::detectCores()) 
 
-results <- readr::read_csv(file.path(folder, "Results.csv"))
-library(dplyr)
-results |>
-  group_by(sampling, bootstrapType) |>
-  summarise(coverageIndirectEffect = mean((0.95-coverageIndirectEffect)^2), 
-            coverageMediatedProportion = mean((0.95-coverageMediatedProportion)^2)) |>
-  arrange(coverageIndirectEffect)
-prepareForShinyApp(folder)
+prepareForShinyApp(folder, "pilotSimulation.rds")
 
 # Full simulation study --------------------------------------------------------
 folder <- "Simulation"
@@ -146,7 +139,7 @@ runSetOfSimulations(folder = folder,
                     simulationSettingsList = ssList, 
                     modelSettingsList = msList,
                     nSimulations = 1000,
-                    maxCores = 25) 
+                    maxCores = parallel::detectCores()) 
 
 prepareForShinyApp(folder)
 

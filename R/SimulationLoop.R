@@ -159,26 +159,31 @@ prettyName <- function(string) {
 #' into the inst/shinyApps/MediationResultsExplorer/data folder.
 #' 
 #' @export
-prepareForShinyApp <- function(folder) {
+prepareForShinyApp <- function(folder, resultFileName = "simulation.rds") {
   results <- readr::read_csv(file.path(folder, "Results.csv"), show_col_types = FALSE)
   results <- tidyr::pivot_longer(results, 
                                  c("coverageDirectEffect",
                                    "coverageMediatorEffect", 
                                    "coverageMainEffect", 
                                    "coverageIndirectEffect", 
+                                   "coverageMediatedProportion",
                                    "biasDirectEffect",
                                    "biasMediatorEffect",
                                    "biasMainEffect",
                                    "biasIndirectEffect",
+                                   "biasMediatedProportion",
                                    "mseDirectEffect" ,
                                    "msesMediatorEffect",
                                    "mseMainEffect",
                                    "mseIndirectEffect",
+                                   "mseMediatedProportion",
                                    "indirectType1Error",
                                    "indirectType2Error",
                                    "nonEstimableFraction"),
                                  names_to = "metric") %>%
     transmute(type = "MRS",
+              sampling,
+              bootstrapType,
               "Direct effect" = exp(.data$yA),
               "Mediator effect" = exp(.data$yM),
               "Effect on mediator" = exp(.data$mA),
@@ -188,6 +193,6 @@ prepareForShinyApp <- function(folder) {
               "Baseline outcome prevalence" = exp(.data$yIntercept),
               metric = prettyName(.data$metric),
               value = .data$value)
-  saveRDS(results, "inst/shinyApps/MediationResultsExplorer/data/simulation.rds")
+  saveRDS(results, file.path("inst/shinyApps/MediationResultsExplorer/data", resultFileName))
 }
 
