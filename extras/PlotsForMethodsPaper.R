@@ -110,11 +110,13 @@ results <- readr::read_csv(file.path(folder, "Results.csv"))
 #             mseIndirectEffect = mean(mseIndirectEffect),
 #             mseMediatedProportion = mean(mseMediatedProportion)) |>
 #   arrange(mseCoverageIndirectEffect)
-results |>
+table <- results |>
   filter(sampling != "weighted strata") |>
   group_by(sampling, bootstrapType) |>
   summarise(mseCoverageIndirectEffect = mean((0.95-coverageIndirectEffect)^2), 
-            mseCoverageMediatedProportion = mean((0.95-coverageMediatedProportion)^2)) 
+            mseCoverageMediatedProportion = mean((0.95-coverageMediatedProportion)^2),
+            .groups = "drop") 
+readr::write_csv(table, file.path(folder, "SummaryTable.csv"))
 
 # Violin plot showing pilot simulation results:
 folder <- "PilotSimulation"
