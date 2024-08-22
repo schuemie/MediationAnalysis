@@ -206,8 +206,8 @@ plot3 <- ggplot(vizData3, aes(x = hr, y = database)) +
 plot3
 
 plot <- grid.arrange(plot1, plot2, plot3, ncol = 3, widths = c(1, 0.8, 0.8))
-ggsave(file.path(rootFolder, "ForestForMethods.png"), plot = plot, width = 8, height = 3.2, dpi = 300)
-ggsave(file.path(rootFolder, "ForestForMethods.pdf"), plot = plot, width = 8, height = 3.2, dpi = 300)
+ggsave(file.path(rootFolder, "ForestForMethods.png"), plot = plot, width = 7, height = 3.2, dpi = 300)
+ggsave(file.path(rootFolder, "ForestForMethods.pdf"), plot = plot, width = 7, height = 3.2, dpi = 300)
 
 
 # Table with counts
