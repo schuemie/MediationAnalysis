@@ -290,14 +290,21 @@ for (database in databases) {
           showCis = TRUE,
           showExpectedAbsoluteSystematicError = TRUE,
           fileName = file.path(database$outputFolder, sprintf("ncsDirectEffect_t%d_c%s_m%d.png", tc$targetId, tc$comparatorId, mediator$mediatorId))
-        )      
+        )    
+        filteredEstimates <- estimates |>
+          filter(!is.na(indirectSeLogRr),
+                 indirectSeLogRr > 1e-4,
+                 indirectSeLogRr < 1e44,
+                 !is.na(mediatedProportionSeLogRr),
+                 mediatedProportionSeLogRr > 1e-4,
+                 mediatedProportionSeLogRr < 1e4)
         nullIndirect <- EmpiricalCalibration::fitMcmcNull(
-          logRr = estimates$indirectLogHr,
-          seLogRr = estimates$indirectSeLogRr
+          logRr = filteredEstimates$indirectLogHr,
+          seLogRr = filteredEstimates$indirectSeLogRr
         )
         EmpiricalCalibration::plotCalibrationEffect(
-          logRrNegatives = estimates$indirectLogHr,
-          seLogRrNegatives = estimates$indirectSeLogRr,
+          logRrNegatives = filteredEstimates$indirectLogHr,
+          seLogRrNegatives = filteredEstimates$indirectSeLogRr,
           null = nullIndirect,
           title = "Indirect effect",
           xLabel = "Hazard ratio",
@@ -306,12 +313,12 @@ for (database in databases) {
           fileName = file.path(database$outputFolder, sprintf("ncsIndirectEffect_t%d_c%s_m%d.png", tc$targetId, tc$comparatorId, mediator$mediatorId))
         )
         nullMediatedProportion <- EmpiricalCalibration::fitMcmcNull(
-          logRr = estimates$mediatedProportion,
-          seLogRr = estimates$mediatedProportionSeLogRr
+          logRr = filteredEstimates$mediatedProportion,
+          seLogRr = filteredEstimates$mediatedProportionSeLogRr
         )
         EmpiricalCalibration::plotCalibrationEffect(
-          logRrNegatives = estimates$mediatedProportion,
-          seLogRrNegatives = estimates$mediatedProportionSeLogRr,
+          logRrNegatives = filteredEstimates$mediatedProportion,
+          seLogRrNegatives = filteredEstimates$mediatedProportionSeLogRr,
           null = nullMediatedProportion,
           title = "Indirect effect",
           xLabel = "Hazard ratio",
@@ -334,7 +341,7 @@ for (database in databases) {
 # # Clean files  ---------------------------------------------------------------
 # for (database in databases) {
 #   message(sprintf("Cleaning files for %s", database$databaseId))
-#   pattern <- "^ease_|^ncs|_hois"
+#   pattern <- "^ease_|^ncs|^hois"
 #   toDelete <- list.files(database$outputFolder, pattern, full.names = TRUE)
 #   unlink(toDelete)
 # }
