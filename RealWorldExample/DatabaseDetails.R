@@ -2,7 +2,7 @@
 # as well as some folders in the local file system.
 options(andromedaTempFolder = "d:/andromedaTemp")
 databases <- list()
-rootFolder <- "d:/mediatorAnalysis"
+rootFolder <- "e:/mediatorAnalysis"
 
 # IBM_CCAE ------------------------------------------------------------
 databases[[length(databases) + 1]] <- list(

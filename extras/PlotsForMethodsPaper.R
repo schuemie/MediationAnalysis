@@ -128,21 +128,21 @@ estimates <- estimates |>
 estimates$database <- factor(estimates$database, levels = sort(unique(estimates$database), decreasing = TRUE))
 
 vizData1 <- estimates |>
-    transmute(estimand = "Main effect",
+    transmute(estimand = "\nTotal effect",
               hr = exp(mainLogHr),
               lb = exp(mainLogLb),
               ub = exp(mainLogUb),
               database = database,
               outcome)
 vizData2 <- estimates |>
-    transmute(estimand = "Indirect effect",
+    transmute(estimand = "\nIndirect effect",
               hr = exp(indirectLogHr),
               lb = exp(indirectLogLb),
               ub = exp(indirectLogUb),
               database = database,
               outcome)
 vizData3 <- estimates |>
-    transmute(estimand = "Mediated proportion",
+    transmute(estimand = "Signed\nmediated proportion",
               hr = mediatedProportion,
               lb = mediatedProportionLb,
               ub = mediatedProportionUb,
