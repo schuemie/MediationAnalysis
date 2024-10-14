@@ -301,11 +301,11 @@ vizData <- results |>
          metricEstimand = gsub("^[^ ]* ", "", metric)) |>
   mutate(metricEstimand = case_when(
     metricEstimand == "indirect effect" ~ "Indirect\neffect",
-    metricEstimand == "main effect" ~ "Main\neffect",
-    metricEstimand == "mediated proportion" ~ "Mediated\nproportion"
+    metricEstimand == "main effect" ~ "Total\neffect",
+    metricEstimand == "mediated proportion" ~ "Signed\nmediated\nproportion"
   )) |>
   filter(value < 5 & value > -5)
-vizData$metricEstimand <- factor(vizData$metricEstimand, levels = c("Main\neffect", "Indirect\neffect", "Mediated\nproportion"))
+vizData$metricEstimand <- factor(vizData$metricEstimand, levels = c("Total\neffect", "Indirect\neffect", "Signed\nmediated\nproportion"))
 
 reference <- vizData |>
   distinct(confounding, outcomePrevalence, metricType, metricEstimand) |>
