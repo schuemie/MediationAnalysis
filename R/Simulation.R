@@ -167,20 +167,24 @@ simulateData <- function(settings) {
   hY_Mstar <- exp(settings$yIntercept + x %*% settings$yX)[, 1]
   hYMstar <- exp(settings$yIntercept + x %*% settings$yX + 1 * settings$yM)[, 1]
   
-  hrIndirect <- computeTrueIndirectEffect(hCensor = settings$hCensor, 
-                                          hM = hM, 
-                                          hMstar = hMstar, 
-                                          hY_M = hY_M, 
-                                          hYM = hYM, 
-                                          a = a)
-  hrMain <- computeTrueMainEffect(hCensor = settings$hCensor, 
-                                  hM = hM, 
-                                  hMstar = hMstar, 
-                                  hY_M = hY_M, 
-                                  hY_Mstar = hY_Mstar,
-                                  hYM = hYM, 
-                                  hYMstar = hYMstar,
-                                  a = a)
+  hrIndirect<- computeTrueEffect(hCensor = settings$hCensor, 
+                                 hM = hM, 
+                                 hMstar = hMstar, 
+                                 hY_M = hY_M, 
+                                 hY_Mstar = hY_Mstar,
+                                 hYM = hYM, 
+                                 hYMstar = hYMstar,
+                                 a = a,
+                                 type = "indirect")
+  hrMain <- computeTrueEffect(hCensor = settings$hCensor, 
+                              hM = hM, 
+                              hMstar = hMstar, 
+                              hY_M = hY_M, 
+                              hY_Mstar = hY_Mstar,
+                              hYM = hYM, 
+                              hYMstar = hYMstar,
+                              a = a,
+                              type = "total")
   data <- tibble(
     a = a,
     tStart = 0,
@@ -199,20 +203,7 @@ simulateData <- function(settings) {
   return(data)
 }
 
-computeTrueIndirectEffect <- function(hCensor, hM, hMstar, hY_M, hYM, a) {
-  # Only exposed have (indirect) effect:
-  idx <- a == 1
-  hM <- hM[idx]
-  hYM <- hYM[idx]
-  hY_M <- hY_M[idx]
-  hMstar <- hMstar[idx]
-  nearInfinity <- 999
-  hFull <- cumHazard(nearInfinity, hCensor, hM, hY_M, hYM) - cumHazard(0, hCensor, hM, hY_M, hYM)
-  hNoMediation <- cumHazard(nearInfinity, hCensor, hMstar, hY_M, hYM) - cumHazard(0, hCensor, hMstar, hY_M, hYM)
-  return(mean(hFull / hNoMediation))
-}
-
-computeTrueMainEffect <- function(hCensor, hM, hMstar, hY_M, hY_Mstar, hYM, hYMstar, a) {
+computeTrueEffect <- function(hCensor, hM, hMstar, hY_M, hY_Mstar, hYM, hYMstar, a, type = "total") {
   # Only exposed have effect:
   idx <- a == 1
   hM <- hM[idx]
@@ -222,53 +213,43 @@ computeTrueMainEffect <- function(hCensor, hM, hMstar, hY_M, hY_Mstar, hYM, hYMs
   hY_Mstar <- hY_Mstar[idx]
   hYMstar <- hYMstar[idx]
   nearInfinity <- 999
-  hFull <- cumHazard(nearInfinity, hCensor, hM, hY_M, hYM) - cumHazard(0, hCensor, hM, hY_M, hYM)
-  hCounterfactual <- cumHazard(nearInfinity, hCensor, hMstar, hY_Mstar, hYMstar) - cumHazard(0, hCensor, hMstar, hY_Mstar, hYMstar)
-  return(mean(hFull / hCounterfactual))
-}
-
-# cumHazard <- function(t, hCensor, hM, hY_M, hYM) {
-#   # Closed-form integral of hazard over time
-#   part1 <- ((hYM - hY_M) * exp(t*(-(hM + hCensor)))) / (hM + hCensor)
-#   part2 <- hYM * exp(-hCensor*t) / hCensor
-#   return(part1 - part2)
-# }
-
-
-cumHazard <- function(t, hCensor, hM, hY_M, hYM) {
-
-  unconditionalHazard <- function(t, hM, hY_M, hYM) {
-    return(exp(-hM*t)*hY_M + (1-exp(-hM*t))*hYM)
+  
+  if (type == "indirect") {
+    hY_Mstar <- hY_M
+    hYMstar <- hYM
   }
-
-  # integrateUnconditionalHazard <- function(t, hM, hY_M, hYM) {
-  #   return(integrate(unconditionalHazard, 0, t, hM = hM, hY_M = hY_M, hYM = hYM)$value)
-  # }
-
-  closeFormIntegrateUnconditionalHazard <- function(t, hM, hY_M, hYM) {
+  
+  hazard <- function(t, hM, hY_M, hYM) {
+    Smt <- exp(-hM*t)
+    return(Smt*hY_M + (1-Smt)*hYM)
+  }
+  
+  hazardRatio <- function(t, hM, hY_M, hYM, hMstar, hY_Mstar, hYMstar) {
+    hA1 = hazard(t, hM, hY_M, hYM)
+    hA0 = hazard(t, hMstar, hY_Mstar, hYMstar)
+    return(hA1/hA0)
+  }  
+  
+  closeFormIntegratedHazard <- function(t, hM, hY_M, hYM) {
     return((exp(-hM*t)*(hYM - hY_M) + hM * hYM * t) / hM)
   }
-
-  hazard <- function(t, hCensor, hM, hY_M, hYM) {
-    # Syt <- exp(-sapply(t, integrateUnconditionalHazard, hM = hM, hY_M = hY_M, hYM = hYM))
-    Syt <- exp(-(closeFormIntegrateUnconditionalHazard(t, hM, hY_M, hYM) - closeFormIntegrateUnconditionalHazard(0, hM, hY_M, hYM)))
-    # Syt <- 1
+  
+  weight <- function(t, hM, hY_M, hYM) {
+    Syt <- exp(-(closeFormIntegratedHazard(t, hM, hY_M, hYM) - closeFormIntegratedHazard(0, hM, hY_M, hYM)))
     Sct <- exp(-hCensor*t)
-    return(unconditionalHazard(t, hM, hY_M, hYM) * Sct * Syt)
+    return(Syt * Sct)
   }
-
-  integrateHazardForPerson <- function(i, t, hCensor, hM, hY_M, hYM) {
-    return(integrate(hazard, 0, t, hCensor = hCensor, hM = hM[i], hY_M = hY_M[i], hYM = hYM[i])$value)
+  
+  weightTimesHazardRatio <- function(t, hM, hY_M, hYM, hMstar, hY_Mstar, hYMstar) {
+    return(weight(t, hM, hY_M, hYM) * hazardRatio(t, hM, hY_M, hYM, hMstar, hY_Mstar, hYMstar))
   }
-
-  return(sapply(seq_along(hM), integrateHazardForPerson, t = t, hCensor = hCensor, hM = hM, hY_M = hY_M, hYM = hYM))
-  # hCensor = settings$hCensor
-  # hM = hM[1]
-  # hYM = hYM[1]
-  # hY_M = hY_M[1]
-  # hMstar = hMstar[1]
-  # hazard <- function(t, hCensor, hM, hY_M, hYM) {
-  #   return((exp(-hM*t)*hY_M + (1-exp(-hM*t))*hYM) * exp(-hCensor*t))
-  # }
-  # integrate(hazard, 0, t, hCensor = hCensor, hM = hM, hY_M = hY_M, hYM = hYM)
+  
+  computeHrPerPerson <- function(i) {
+    wHr <- integrate(weightTimesHazardRatio, 0, nearInfinity, hM = hM[i], hY_M = hY_M[i], hYM = hYM[i], hMstar = hMstar[i], hY_Mstar = hY_Mstar[i], hYMstar = hYMstar[i])$value
+    w <- integrate(weight, 0, nearInfinity, hM = hM[i], hY_M = hY_M[i], hYM = hYM[i])$value
+    return(wHr / w)
+  } 
+  
+  hr <- mean(sapply(seq_along(hM), computeHrPerPerson))
+  return(hr)
 }
