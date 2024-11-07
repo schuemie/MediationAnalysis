@@ -227,23 +227,48 @@ computeTrueMainEffect <- function(hCensor, hM, hMstar, hY_M, hY_Mstar, hYM, hYMs
   return(mean(hFull / hCounterfactual))
 }
 
+# cumHazard <- function(t, hCensor, hM, hY_M, hYM) {
+#   # Closed-form integral of hazard over time
+#   part1 <- ((hYM - hY_M) * exp(t*(-(hM + hCensor)))) / (hM + hCensor)
+#   part2 <- hYM * exp(-hCensor*t) / hCensor
+#   return(part1 - part2)
+# }
 
 
 cumHazard <- function(t, hCensor, hM, hY_M, hYM) {
-  # Closed-form integral of hazard over time
-  part1 <- ((hYM - hY_M) * exp(t*(-(hM + hCensor)))) / (hM + hCensor)
-  part2 <- hYM * exp(-hCensor*t) / hCensor
-  return(part1 - part2)
-  
-  # Test code
-  # hazard <- function(t, hCensor, hM, hY_M, hYM) {
-  #   return((exp(-hM*t)*hY_M + (1-exp(-hM*t))*hYM) * exp(-hCensor*t))
+
+  unconditionalHazard <- function(t, hM, hY_M, hYM) {
+    return(exp(-hM*t)*hY_M + (1-exp(-hM*t))*hYM)
+  }
+
+  # integrateUnconditionalHazard <- function(t, hM, hY_M, hYM) {
+  #   return(integrate(unconditionalHazard, 0, t, hM = hM, hY_M = hY_M, hYM = hYM)$value)
   # }
-  # 
+
+  closeFormIntegrateUnconditionalHazard <- function(t, hM, hY_M, hYM) {
+    return((exp(-hM*t)*(hYM - hY_M) + hM * hYM * t) / hM)
+  }
+
+  hazard <- function(t, hCensor, hM, hY_M, hYM) {
+    # Syt <- exp(-sapply(t, integrateUnconditionalHazard, hM = hM, hY_M = hY_M, hYM = hYM))
+    Syt <- exp(-(closeFormIntegrateUnconditionalHazard(t, hM, hY_M, hYM) - closeFormIntegrateUnconditionalHazard(0, hM, hY_M, hYM)))
+    # Syt <- 1
+    Sct <- exp(-hCensor*t)
+    return(unconditionalHazard(t, hM, hY_M, hYM) * Sct * Syt)
+  }
+
+  integrateHazardForPerson <- function(i, t, hCensor, hM, hY_M, hYM) {
+    return(integrate(hazard, 0, t, hCensor = hCensor, hM = hM[i], hY_M = hY_M[i], hYM = hYM[i])$value)
+  }
+
+  return(sapply(seq_along(hM), integrateHazardForPerson, t = t, hCensor = hCensor, hM = hM, hY_M = hY_M, hYM = hYM))
   # hCensor = settings$hCensor
   # hM = hM[1]
   # hYM = hYM[1]
   # hY_M = hY_M[1]
   # hMstar = hMstar[1]
-  # integrate(hazard, 0, 2, hCensor = hCensor, hM = hM, hY_M = hY_M, hYM = hYM)
+  # hazard <- function(t, hCensor, hM, hY_M, hYM) {
+  #   return((exp(-hM*t)*hY_M + (1-exp(-hM*t))*hYM) * exp(-hCensor*t))
+  # }
+  # integrate(hazard, 0, t, hCensor = hCensor, hM = hM, hY_M = hY_M, hYM = hYM)
 }
