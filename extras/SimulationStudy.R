@@ -37,7 +37,8 @@ msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
                                                     psAdjustment = "matching",
                                                     mrsAdjustment = "model",
                                                     mediatorType = "time-to-event",
-                                                    bootstrapSettings = createBootstrapSettings(sampling = "strata"))
+                                                    bootstrapSettings = createBootstrapSettings(sampling = "strata",
+                                                                                                bootstrapType = "percentile"))
 msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
                                                     mrs = "fit",
                                                     psAdjustment = "matching",
@@ -64,7 +65,8 @@ msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
                                                     psAdjustment = "matching",
                                                     mrsAdjustment = "model",
                                                     mediatorType = "time-to-event",
-                                                    bootstrapSettings = createBootstrapSettings(sampling = "person"))
+                                                    bootstrapSettings = createBootstrapSettings(sampling = "person",
+                                                                                                bootstrapType = "percentile"))
 msList[[length(msList) + 1]] <- createModelsettings(ps = "fit",
                                                     mrs = "fit",
                                                     psAdjustment = "matching",
