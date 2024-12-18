@@ -154,25 +154,9 @@
     },
     "DatabaseConnector": {
       "Package": "DatabaseConnector",
-      "Version": "6.3.3",
-      "Source": "unknown",
-      "Requirements": [
-        "DBI",
-        "R",
-        "SqlRender",
-        "bit64",
-        "checkmate",
-        "dbplyr",
-        "digest",
-        "methods",
-        "rJava",
-        "readr",
-        "rlang",
-        "stringr",
-        "urltools",
-        "utils"
-      ],
-      "Hash": "bf0e79d8a09f2c065f001516412d1c8a"
+      "Version": "6.3.2",
+      "Source": "Repository",
+      "Repository": "CRAN"
     },
     "EmpiricalCalibration": {
       "Package": "EmpiricalCalibration",
@@ -216,18 +200,9 @@
     },
     "MASS": {
       "Package": "MASS",
-      "Version": "7.3-61",
+      "Version": "7.3-58.2",
       "Source": "Repository",
-      "Repository": "CRAN",
-      "Requirements": [
-        "R",
-        "grDevices",
-        "graphics",
-        "methods",
-        "stats",
-        "utils"
-      ],
-      "Hash": "0cafd6f0500e5deba33be22c46bf6055"
+      "Repository": "CRAN"
     },
     "MatchIt": {
       "Package": "MatchIt",
@@ -249,20 +224,9 @@
     },
     "Matrix": {
       "Package": "Matrix",
-      "Version": "1.7-0",
+      "Version": "1.6-5",
       "Source": "Repository",
-      "Repository": "CRAN",
-      "Requirements": [
-        "R",
-        "grDevices",
-        "graphics",
-        "grid",
-        "lattice",
-        "methods",
-        "stats",
-        "utils"
-      ],
-      "Hash": "1920b2f11133b12350024297d8a4ff4a"
+      "Repository": "CRAN"
     },
     "OhdsiRTools": {
       "Package": "OhdsiRTools",
@@ -286,17 +250,9 @@
     },
     "ParallelLogger": {
       "Package": "ParallelLogger",
-      "Version": "3.3.2",
-      "Source": "unknown",
-      "Requirements": [
-        "R",
-        "jsonlite",
-        "methods",
-        "snow",
-        "utils",
-        "xml2"
-      ],
-      "Hash": "0cbb728e51b3e6c4834982192c53890f"
+      "Version": "3.3.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
     },
     "R.cache": {
       "Package": "R.cache",
