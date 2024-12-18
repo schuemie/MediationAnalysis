@@ -254,7 +254,8 @@ fitModel <- function(data, settings) {
   
   # Compute indirect effect using the difference method:
   indirectLogHr <- mainLogHr - directLogHr
-  mediatedProportion <- (exp(indirectLogHr) - 1) / (exp(mainLogHr)-1)
+  # mediatedProportion <- (exp(indirectLogHr) - 1) / (exp(mainLogHr)-1)
+  mediatedProportion <- indirectLogHr / mainLogHr
   if (is.na(indirectLogHr)) {
     ci <- list(ciIndirect = c(NA, NA),
                ciMediatedProportion = c(NA, NA))
@@ -382,7 +383,8 @@ computeIndirectEffectCi <- function(data, f, mleIndirect, mleMediatedProportion,
                       uniqueStratumIds = uniqueStratumIds,
                       bootstrapSettings = bootstrapSettings) 
   sampleIndirect <- bootstrap[1, ] - bootstrap[2, ]
-  sampleMediatedProportion <- (exp(sampleIndirect) - 1) / (exp(bootstrap[1, ]) - 1)
+  #sampleMediatedProportion <- (exp(sampleIndirect) - 1) / (exp(bootstrap[1, ]) - 1)
+  sampleMediatedProportion <- sampleIndirect / bootstrap[1, ]
   percentiles <- c(0.025, 0.975)
   percentilesIndirect <- adjustPercentiles(percentiles = percentiles,
                                            sample = sampleIndirect,
